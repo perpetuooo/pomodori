@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "One-day Pomodoro",
+  "version": "0.0.0",
+  "description": "Simply a Pomodoro timer.",
+  "homepage": "https://github.com/perpetuooo/one-day-pomodoro",
+
+  "icons": {
+    "48": "icons/tomato-48.png",
+    "96": "icons/tomato-96.png"
+  },
+
+  "permissions": ["activeTab", "scripting", "storage", "alamrs"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tomato@mozilla.org",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
+
+  "action": {
+    "default_icon": "icons/tomato-32.png",
+    "theme_icons": [
+        {
+            "light": "icons/tomato-32-light.png",
+            "dark": "icons/tomato-32.png",
+            "size": 32
+        }
+    ],
+    "default_title": "One-day Pomodoro",
+    "default_popup": "popup/pomodoro.html"
+  },
+
+  "web_accessible_resources": [
+    {
+      "matches": ["*://*/*"]
+    }
+  ]
+}
