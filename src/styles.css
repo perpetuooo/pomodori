@@ -1,0 +1,56 @@
+:root {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 300px;
+  background: #f6f7f8;
+}
+
+.popup {
+  padding: 16px;
+}
+
+.popup h1 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.clock {
+  font-size: 42px;
+  font-weight: 700;
+  text-align: center;
+  margin: 8px 0 14px;
+}
+
+.meta {
+  margin: 0 0 12px;
+  color: #444;
+  font-size: 14px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.row button,
+.row input,
+button.full {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #c7c7c7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+button.full {
+  margin-top: 8px;
+}

@@ -30,7 +30,7 @@
         }
     ],
     "default_title": "One-day Pomodoro",
-    "default_popup": "popup/pomodoro.html"
+    "default_popup": "index.html"
   },
 
   "web_accessible_resources": [
