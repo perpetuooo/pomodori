@@ -85,7 +85,7 @@ function App() {
 
   return (
     <main className="popup">
-      <h1>Pomodoro</h1>
+      <h1>Pomodori</h1>
       <p className="clock">{formatClock(state.remainingSeconds)}</p>
       <p className="meta">Completed sessios: {state.completedSessions}</p>
 
