@@ -1,93 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
-import { createInitialTimerState, DEFAULT_WORK_MINUTES, formatClock, getRemainingFromEnd } from "./lib/timer";
-import { TimerState } from "./types/timer";
+import { formatClock } from "./lib/timer";
+import { useTimer } from "./hooks/useTimer";
 
 function App() {
-  const [state, setState] = useState<TimerState>(createInitialTimerState());
-  const [workMinutesInput, setWorkMinutesInput] = useState<string>(DEFAULT_WORK_MINUTES.toString());
+  const {
+    state,
+    hydrated,
+    workMinutesInput,
+    setWorkMinutesInput,
+    handleStartPause,
+    handleReset,
+    handleApplyMinutes,
+  } = useTimer();
 
-  useEffect(() => {
-    if (!state.isRunning || !state.endEpochMs) {
-      return;
-    }
+  // Avoid rendering stale initial state before storage rehydration
+  if (!hydrated) return null;
 
-    const id = window.setInterval(() => {
-      setState((current) => {
-        if (!current.isRunning || !current.endEpochMs) {
-          return current;
-        }
-
-        const remaining = getRemainingFromEnd(current.endEpochMs);
-        if (remaining === 0) {
-          return {
-            ...current,
-            isRunning: false,
-            endEpochMs: null,
-            remainingSeconds: current.durationSeconds,
-            completedSessions: current.completedSessions + 1
-          };
-        }
-
-        return {
-          ...current,
-          remainingSeconds: remaining
-        };
-      });
-    }, 1000);
-
-    return () => window.clearInterval(id);
-  }, [state.isRunning, state.endEpochMs]);
-
-  const startOrPauseLabel = useMemo(() => (state.isRunning ? "Pause" : "Start"), [state.isRunning]);
-
-  const handleStartPause = () => {
-    setState((current) => {
-      if (current.isRunning) {
-        return {
-          ...current,
-          isRunning: false,
-          endEpochMs: null
-        };
-      }
-
-      const endEpochMs = Date.now() + current.remainingSeconds * 1000;
-      return {
-        ...current,
-        isRunning: true,
-        endEpochMs
-      };
-    });
-  };
-
-  const handleReset = () => {
-    setState((current) => ({
-      ...current,
-      remainingSeconds: current.durationSeconds,
-      isRunning: false,
-      endEpochMs: null
-    }));
-  };
-
-  const handleApplyMinutes = () => {
-    const parsed = Number.parseInt(workMinutesInput, 10);
-    const safeMinutes = Number.isNaN(parsed) ? DEFAULT_WORK_MINUTES : Math.max(1, parsed);
-    const nextDuration = safeMinutes * 60;
-
-    setWorkMinutesInput(safeMinutes.toString());
-    setState((current) => ({
-      ...current,
-      durationSeconds: nextDuration,
-      remainingSeconds: nextDuration,
-      isRunning: false,
-      endEpochMs: null
-    }));
-  };
+  const startOrPauseLabel = state.isRunning ? "Pause" : "Start";
 
   return (
     <main className="popup">
       <h1>Pomodori</h1>
       <p className="clock">{formatClock(state.remainingSeconds)}</p>
-      <p className="meta">Completed sessios: {state.completedSessions}</p>
+      <p className="meta">Completed sessions: {state.completedSessions}</p>
 
       <div className="row">
         <button type="button" onClick={handleStartPause}>
@@ -105,8 +39,9 @@ function App() {
           value={workMinutesInput}
           onChange={(event) => setWorkMinutesInput(event.target.value)}
           aria-label="Work minutes"
+          disabled={state.isRunning}
         />
-        <button type="button" onClick={handleApplyMinutes}>
+        <button type="button" onClick={handleApplyMinutes} disabled={state.isRunning}>
           Apply
         </button>
       </div>
