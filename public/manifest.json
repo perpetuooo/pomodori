@@ -3,14 +3,14 @@
   "name": "Pomodori",
   "version": "0.1.0",
   "description": "Simply a Pomodoro timer.",
-  "homepage": "https://github.com/perpetuooo/pomodori",
+  "homepage_url": "https://github.com/perpetuooo/pomodori",
 
   "icons": {
     "48": "icons/tomato-48.png",
     "96": "icons/tomato-96.png"
   },
 
-  "permissions": ["activeTab", "scripting", "storage", "alamrs"],
+  "permissions": ["activeTab", "scripting", "storage", "alarms"],
   "browser_specific_settings": {
     "gecko": {
       "id": "tomato@mozilla.org",
@@ -35,7 +35,8 @@
 
   "web_accessible_resources": [
     {
-      "matches": ["*://*/*"]
+      "resources": ["assets/*"],
+      "matches": ["*://*/*", "<all_urls>"]
     }
   ]
 }

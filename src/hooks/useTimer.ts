@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createInitialTimerState, DEFAULT_WORK_MINUTES, getRemainingFromEnd } from "../lib/timer";
-import { clearTimerState, loadTimerState, saveTimerState } from "../lib/storage";
-import { TimerState } from "../types/timer";
+import { loadTimerState, saveTimerState } from "../lib/storage";
+import { TimerState, Phase } from "../types/timer";
+import { logPauseEvent, logSessionCompletion } from "../lib/db";
 
 export function useTimer() {
   const [state, setState] = useState<TimerState>(createInitialTimerState());
   const [workMinutesInput, setWorkMinutesInput] = useState<string>(DEFAULT_WORK_MINUTES.toString());
   const [hydrated, setHydrated] = useState(false);
-  const saveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSaveRef = useRef<number>(0);
 
   useEffect(() => {
     loadTimerState().then((saved) => {
@@ -20,14 +21,12 @@ export function useTimer() {
 
         // If the timer already expired while popup was closed, mark it as completed
         const expired = rehydrated.isRunning && rehydrated.remainingSeconds === 0;
+        if (expired) {
+          logSessionCompletion(rehydrated.phase, rehydrated.durationSeconds);
+        }
+
         const finalState: TimerState = expired
-          ? {
-            ...rehydrated,
-            isRunning: false,
-            endEpochMs: null,
-            remainingSeconds: rehydrated.durationSeconds,
-            completedSessions: rehydrated.completedSessions + 1,
-          }
+          ? autoAdvanceCycle(rehydrated)
           : rehydrated;
 
         setState(finalState);
@@ -37,23 +36,59 @@ export function useTimer() {
     });
   }, []);
 
-  const persistState = useCallback((nextState: TimerState) => {
-    if (saveRef.current) clearTimeout(saveRef.current);
-    saveRef.current = setTimeout(() => {
-      saveTimerState(nextState);
-    }, 300);
-  }, []);
-
   const updateState = useCallback(
     (updater: (current: TimerState) => TimerState) => {
       setState((current) => {
         const next = updater(current);
-        persistState(next);
+
+        const isImportantChange =
+          current.isRunning !== next.isRunning ||
+          current.phase !== next.phase ||
+          current.endEpochMs !== next.endEpochMs ||
+          current.durationSeconds !== next.durationSeconds;
+
+        const now = Date.now();
+        if (isImportantChange || now - lastSaveRef.current >= 1000) {
+          saveTimerState(next);
+          lastSaveRef.current = now;
+        }
+
         return next;
       });
     },
-    [persistState]
+    []
   );
+
+  const autoAdvanceCycle = (current: TimerState): TimerState => {
+    let nextPhase: Phase = "work";
+    let nextDuration = DEFAULT_WORK_MINUTES * 60;
+    const completed = current.completedSessions + 1;
+
+    if (current.phase === "work") {
+      // After a work session, take a break. Every 4th is a long break.
+      if (completed % 4 === 0) {
+        nextPhase = "longBreak";
+        nextDuration = 15 * 60;
+      } else {
+        nextPhase = "shortBreak";
+        nextDuration = 5 * 60;
+      }
+    } else {
+      // After any break, go back to work
+      nextPhase = "work";
+      nextDuration = DEFAULT_WORK_MINUTES * 60;
+    }
+
+    return {
+      ...current,
+      phase: nextPhase,
+      durationSeconds: nextDuration,
+      remainingSeconds: nextDuration,
+      isRunning: false,
+      endEpochMs: null,
+      completedSessions: completed,
+    };
+  };
 
   useEffect(() => {
     if (!state.isRunning || !state.endEpochMs) return;
@@ -65,15 +100,8 @@ export function useTimer() {
         const remaining = getRemainingFromEnd(current.endEpochMs);
 
         if (remaining === 0) {
-          const next: TimerState = {
-            ...current,
-            isRunning: false,
-            endEpochMs: null,
-            remainingSeconds: current.durationSeconds,
-            completedSessions: current.completedSessions + 1,
-          };
-          clearTimerState();
-          return next;
+          logSessionCompletion(current.phase, current.durationSeconds);
+          return autoAdvanceCycle(current);
         }
 
         return { ...current, remainingSeconds: remaining };
@@ -86,6 +114,7 @@ export function useTimer() {
   const handleStartPause = useCallback(() => {
     updateState((current) => {
       if (current.isRunning) {
+        logPauseEvent();
         return { ...current, isRunning: false, endEpochMs: null };
       }
       const endEpochMs = Date.now() + current.remainingSeconds * 1000;
@@ -116,6 +145,19 @@ export function useTimer() {
     }));
   }, [workMinutesInput, updateState]);
 
+  const handleSetPhase = useCallback((phase: Phase, minutes: number) => {
+    const nextDuration = minutes * 60;
+    setWorkMinutesInput(minutes.toString());
+    updateState((current) => ({
+      ...current,
+      phase,
+      durationSeconds: nextDuration,
+      remainingSeconds: nextDuration,
+      isRunning: false,
+      endEpochMs: null,
+    }));
+  }, [updateState]);
+
   return {
     state,
     hydrated,
@@ -124,5 +166,6 @@ export function useTimer() {
     handleStartPause,
     handleReset,
     handleApplyMinutes,
+    handleSetPhase,
   };
 }
