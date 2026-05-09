@@ -26,6 +26,7 @@ function App() {
 
   const startOrPauseLabel = state.isRunning ? "Pause" : "Start";
   const isOvertime = state.remainingSeconds < 0;
+  const advanceButtonLabel = state.remainingSeconds <= 0 ? "Conclude" : "Skip";
 
   return (
     <main className="popup" style={{ width: "320px", minHeight: "400px", display: "flex", flexDirection: "column" }}>
@@ -89,7 +90,7 @@ function App() {
               {startOrPauseLabel}
             </button>
             <button type="button" onClick={handleAdvance}>
-              Next
+              {advanceButtonLabel}
             </button>
             <button type="button" onClick={handleReset}>
               Reset

@@ -68,10 +68,10 @@ export function useTimer() {
     []
   );
 
-  const autoAdvanceCycle = (current: TimerState, currentSettings: Settings): TimerState => {
+  const autoAdvanceCycle = (current: TimerState, currentSettings: Settings, skipped = false): TimerState => {
     let nextPhase: Phase = "work";
     let nextDuration = currentSettings.workDuration * 60;
-    const completed = current.completedSessions + 1;
+    const completed = skipped ? current.completedSessions : current.completedSessions + 1;
 
     if (current.phase === "work") {
       if (completed % currentSettings.sessionsUntilLongBreak === 0) {
@@ -177,9 +177,14 @@ export function useTimer() {
 
   const handleAdvance = useCallback(() => {
     updateState((current) => {
+      const isSkipped = current.remainingSeconds > 0;
       const overtime = current.remainingSeconds < 0 ? Math.abs(current.remainingSeconds) : 0;
-      logSessionCompletion(current.phase, current.durationSeconds, overtime);
-      return autoAdvanceCycle(current, settingsRef.current);
+      
+      if (!isSkipped) {
+        logSessionCompletion(current.phase, current.durationSeconds, overtime);
+      }
+      
+      return autoAdvanceCycle(current, settingsRef.current, isSkipped);
     });
   }, [updateState]);
 
