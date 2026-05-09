@@ -1,6 +1,8 @@
 import { useEffect, useState, FormEvent } from "react";
 import { Settings } from "../types";
 import { loadSettings, saveSettings, db, DEFAULT_SETTINGS } from "../lib/db";
+import socialMediaPreset from "../assets/presets/social_media.txt?raw";
+import streamingPreset from "../assets/presets/streaming.txt?raw";
 
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -9,6 +11,7 @@ export function SettingsView() {
   const [saved, setSaved] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
+  const [customAlarms, setCustomAlarms] = useState<Array<{ id: string, name: string }>>([]);
 
   useEffect(() => {
     loadSettings().then((loaded) => {
@@ -16,7 +19,14 @@ export function SettingsView() {
       setBlocklistText(loaded.blocklist.join("\n"));
       setLoading(false);
     });
+    loadAlarms();
   }, []);
+
+  const loadAlarms = () => {
+    db.audioFiles.toArray().then(files => {
+      setCustomAlarms(files.map(f => ({ id: f.id, name: f.name })));
+    });
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -43,6 +53,11 @@ export function SettingsView() {
       return;
     }
 
+    if (customAlarms.length >= 3) {
+      setUploadError("Maximum of 3 custom alarms allowed.");
+      return;
+    }
+
     const audioUrl = URL.createObjectURL(file);
     const audio = new Audio(audioUrl);
 
@@ -53,9 +68,14 @@ export function SettingsView() {
         return;
       }
 
+      const alarmName = prompt("Enter a name for this alarm:", file.name) || file.name;
+      const id = Date.now().toString();
+
       try {
-        await db.audioFiles.put({ id: "customAlarm", blob: file });
+        await db.audioFiles.put({ id, name: alarmName, blob: file });
         setUploadSuccess("Custom alarm saved successfully!");
+        loadAlarms();
+        setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: id } });
         setTimeout(() => setUploadSuccess(""), 3000);
       } catch (err) {
         setUploadError("Failed to save audio file.");
@@ -66,6 +86,14 @@ export function SettingsView() {
       URL.revokeObjectURL(audioUrl);
       setUploadError("Invalid audio file.");
     };
+  };
+
+  const handleDeleteAlarm = async (id: string) => {
+    await db.audioFiles.delete(id);
+    if (settings.alarms?.activeCustomAlarmId === id) {
+      setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: null } });
+    }
+    loadAlarms();
   };
 
   const addPreset = (preset: string[]) => {
@@ -79,8 +107,9 @@ export function SettingsView() {
     setBlocklistText(combined.join("\n"));
   };
 
-  const SOCIAL_MEDIA = ["facebook.com", "instagram.com", "twitter.com", "x.com", "tiktok.com", "reddit.com", "linkedin.com", "snapchat.com", "pinterest.com"];
-  const STREAMING = ["youtube.com", "netflix.com", "twitch.tv", "hulu.com", "primevideo.com", "disneyplus.com", "max.com", "spotify.com"];
+  const SOCIAL_MEDIA = socialMediaPreset.split("\n").map(l => l.trim()).filter(Boolean);
+  const STREAMING = streamingPreset.split("\n").map(l => l.trim()).filter(Boolean);
+
   if (loading) return <div>Loading settings...</div>;
 
   return (
@@ -147,52 +176,80 @@ export function SettingsView() {
         <fieldset style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           <legend>Alarms & Notifications</legend>
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-            <input 
-              type="checkbox" 
-              checked={settings.alarms?.workEnabled ?? true} 
-              onChange={e => setSettings({...settings, alarms: {...settings.alarms, workEnabled: e.target.checked}})} 
+            <input
+              type="checkbox"
+              checked={settings.alarms?.workEnabled ?? true}
+              onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, workEnabled: e.target.checked } })}
             />
             Ring on Focus complete
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-            <input 
-              type="checkbox" 
-              checked={settings.alarms?.shortBreakEnabled ?? true} 
-              onChange={e => setSettings({...settings, alarms: {...settings.alarms, shortBreakEnabled: e.target.checked}})} 
+            <input
+              type="checkbox"
+              checked={settings.alarms?.shortBreakEnabled ?? true}
+              onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, shortBreakEnabled: e.target.checked } })}
             />
             Ring on Short Break complete
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-            <input 
-              type="checkbox" 
-              checked={settings.alarms?.longBreakEnabled ?? true} 
-              onChange={e => setSettings({...settings, alarms: {...settings.alarms, longBreakEnabled: e.target.checked}})} 
+            <input
+              type="checkbox"
+              checked={settings.alarms?.longBreakEnabled ?? true}
+              onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, longBreakEnabled: e.target.checked } })}
             />
             Ring on Long Break complete
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-            <input 
-              type="checkbox" 
-              checked={settings.alarms?.overtimeEnabled ?? true} 
-              onChange={e => setSettings({...settings, alarms: {...settings.alarms, overtimeEnabled: e.target.checked}})} 
+            <input
+              type="checkbox"
+              checked={settings.alarms?.overtimeEnabled ?? true}
+              onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, overtimeEnabled: e.target.checked } })}
             />
-            Ring exactly at 00:00 when Overtime Mode is active
+            Ring at 00:00 on Overtime Mode
           </label>
 
           <label style={{ display: "flex", justifyContent: "space-between", marginTop: "0.5rem" }}>
             Alarm Volume:
-            <input 
-              type="range" 
-              min="0" max="1" step="0.1" 
-              value={settings.alarms?.volume ?? 0.5} 
-              onChange={e => setSettings({...settings, alarms: {...settings.alarms, volume: parseFloat(e.target.value)}})} 
+            <input
+              type="range"
+              min="0" max="1" step="0.1"
+              value={settings.alarms?.volume ?? 0.5}
+              onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, volume: parseFloat(e.target.value) } })}
             />
           </label>
 
           <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             <span style={{ fontSize: "0.9rem", fontWeight: "bold" }}>Custom Alarm Sound</span>
-            <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.8 }}>Upload your own sound (max 10s, 2MB). Overrides the default alarm.</p>
-            <input type="file" accept="audio/*" onChange={handleAudioUpload} />
+            <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.8 }}>Upload your own sounds (max 10s, 2MB). You can store up to 3 alarms.</p>
+
+            {customAlarms.map(alarm => (
+              <div key={alarm.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem", border: "1px solid #ccc", borderRadius: "4px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", flex: 1 }}>
+                  <input
+                    type="radio"
+                    name="activeAlarm"
+                    checked={settings.alarms?.activeCustomAlarmId === alarm.id}
+                    onChange={() => setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: alarm.id } })}
+                  />
+                  {alarm.name}
+                </label>
+                <button type="button" onClick={() => handleDeleteAlarm(alarm.id)} style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem", background: "#e74c3c", color: "white", border: "none", borderRadius: "3px", cursor: "pointer" }}>Delete</button>
+              </div>
+            ))}
+
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", padding: "0.5rem" }}>
+              <input
+                type="radio"
+                name="activeAlarm"
+                checked={!settings.alarms?.activeCustomAlarmId}
+                onChange={() => setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: null } })}
+              />
+              Default Alarm
+            </label>
+
+            {customAlarms.length < 3 && (
+              <input type="file" accept="audio/*" onChange={handleAudioUpload} />
+            )}
             {uploadError && <span style={{ color: "#e74c3c", fontSize: "0.85rem" }}>{uploadError}</span>}
             {uploadSuccess && <span style={{ color: "#2ecc71", fontSize: "0.85rem" }}>{uploadSuccess}</span>}
           </div>

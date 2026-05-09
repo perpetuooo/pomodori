@@ -17,6 +17,7 @@ export interface AlarmSettings {
   overtimeEnabled: boolean;
   volume: number;
   soundEnabled: boolean;
+  activeCustomAlarmId: string | null;
 }
 
 export interface Settings {

@@ -15,6 +15,7 @@ export interface DailyStat {
 
 export interface AudioFile {
   id: string;
+  name: string;
   blob: Blob;
 }
 
@@ -41,7 +42,8 @@ export class PomodoriDB extends Dexie {
             longBreakEnabled: true,
             overtimeEnabled: true,
             volume: 0.5,
-            soundEnabled: true
+            soundEnabled: true,
+            activeCustomAlarmId: null
           };
         }
       });
@@ -137,7 +139,8 @@ export const DEFAULT_SETTINGS: Settings = {
     longBreakEnabled: true,
     overtimeEnabled: true,
     volume: 0.5,
-    soundEnabled: true
+    soundEnabled: true,
+    activeCustomAlarmId: null
   }
 };
 

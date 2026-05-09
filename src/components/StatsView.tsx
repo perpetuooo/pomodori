@@ -42,12 +42,29 @@ export function StatsView() {
   }
 
   const exportData = async () => {
-    const data = await db.dailyStats.toArray();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const statsData = await db.dailyStats.toArray();
+    const audioData = await db.audioFiles.toArray();
+    
+    // Convert blobs to base64 for JSON serialization
+    const audioFilesB64 = await Promise.all(audioData.map(async file => {
+      const b64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file.blob);
+      });
+      return { id: file.id, name: file.name, blob: b64 };
+    }));
+
+    const exportObj = {
+      dailyStats: statsData,
+      audioFiles: audioFilesB64
+    };
+
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "pomodori_stats.json";
+    a.download = "pomodori_export.json";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -60,14 +77,21 @@ export function StatsView() {
     reader.onload = async (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        if (Array.isArray(json)) {
-          await db.transaction('rw', db.dailyStats, async () => {
-            for (const item of json) {
-              await db.dailyStats.put(item);
-            }
-          });
-          alert("Data imported successfully!");
-        }
+        const statsToImport = json.dailyStats || [];
+        const audioToImport: Array<{id: string, name: string, blob: string}> = json.audioFiles || [];
+
+        await db.transaction('rw', db.dailyStats, db.audioFiles, async () => {
+          for (const item of statsToImport) {
+            await db.dailyStats.put(item);
+          }
+          
+          for (const item of audioToImport) {
+            const res = await fetch(item.blob);
+            const blob = await res.blob();
+            await db.audioFiles.put({ id: item.id, name: item.name, blob });
+          }
+        });
+        alert("Data imported successfully!");
       } catch (err) {
         alert("Error importing data. Invalid file.");
       }

@@ -1,20 +1,22 @@
 import { Settings, Phase } from "../types";
 import { db } from "./db";
+import defaultAlarmUrl from "../assets/audio/alarm.mp3";
 
-const DEFAULT_ALARM_URL = "/audio/alarm.mp3";
 let currentBlobUrl: string | null = null;
 
-async function getAudioElement(volume: number): Promise<HTMLAudioElement | null> {
-  let url = DEFAULT_ALARM_URL;
+async function getAudioElement(volume: number, activeAlarmId: string | null): Promise<HTMLAudioElement | null> {
+  let url = defaultAlarmUrl;
 
   try {
-    const customAudio = await db.audioFiles.get("customAlarm");
-    if (customAudio && customAudio.blob) {
-      if (currentBlobUrl) {
-        URL.revokeObjectURL(currentBlobUrl);
+    if (activeAlarmId) {
+      const customAudio = await db.audioFiles.get(activeAlarmId);
+      if (customAudio && customAudio.blob) {
+        if (currentBlobUrl) {
+          URL.revokeObjectURL(currentBlobUrl);
+        }
+        currentBlobUrl = URL.createObjectURL(customAudio.blob);
+        url = currentBlobUrl;
       }
-      currentBlobUrl = URL.createObjectURL(customAudio.blob);
-      url = currentBlobUrl;
     }
   } catch (err) {
     console.error("Failed to load custom audio", err);
@@ -29,7 +31,7 @@ export async function playAlarm(settings: Settings) {
   if (!settings.alarms.soundEnabled) return;
 
   try {
-    const audio = await getAudioElement(settings.alarms.volume);
+    const audio = await getAudioElement(settings.alarms.volume, settings.alarms.activeCustomAlarmId);
     if (audio) {
       await audio.play();
     }
