@@ -1,23 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createInitialTimerState, DEFAULT_WORK_MINUTES, getRemainingFromEnd } from "../lib/timer";
+import { createInitialTimerState, getRemainingFromEnd } from "../lib/timer";
 import { loadTimerState, saveTimerState } from "../lib/storage";
-import { TimerState, Phase } from "../types/timer";
-import { logPauseEvent, logSessionCompletion } from "../lib/db";
+import { TimerState, Phase, Settings } from "../types";
+import { logPauseEvent, logSessionCompletion, loadSettings, DEFAULT_SETTINGS } from "../lib/db";
 
 export function useTimer() {
   const [state, setState] = useState<TimerState>(createInitialTimerState());
-  const [workMinutesInput, setWorkMinutesInput] = useState<string>(DEFAULT_WORK_MINUTES.toString());
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [workMinutesInput, setWorkMinutesInput] = useState<string>(DEFAULT_SETTINGS.workDuration.toString());
   const [hydrated, setHydrated] = useState(false);
   const lastSaveRef = useRef<number>(0);
+  const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
-    loadTimerState().then((saved) => {
-      if (saved) {
+    Promise.all([loadTimerState(), loadSettings()]).then(([savedTimer, loadedSettings]) => {
+      setSettings(loadedSettings);
+      settingsRef.current = loadedSettings;
+      
+      if (savedTimer) {
         // If the timer was running when the popup closed, recalculate remaining time
         const rehydrated: TimerState =
-          saved.isRunning && saved.endEpochMs
-            ? { ...saved, remainingSeconds: getRemainingFromEnd(saved.endEpochMs) }
-            : saved;
+          savedTimer.isRunning && savedTimer.endEpochMs
+            ? { ...savedTimer, remainingSeconds: getRemainingFromEnd(savedTimer.endEpochMs) }
+            : savedTimer;
 
         // If the timer already expired while popup was closed, mark it as completed
         const expired = rehydrated.isRunning && rehydrated.remainingSeconds === 0;
@@ -26,11 +31,14 @@ export function useTimer() {
         }
 
         const finalState: TimerState = expired
-          ? autoAdvanceCycle(rehydrated)
+          ? autoAdvanceCycle(rehydrated, loadedSettings)
           : rehydrated;
 
         setState(finalState);
         setWorkMinutesInput(String(Math.round(finalState.durationSeconds / 60)));
+      } else {
+        setWorkMinutesInput(loadedSettings.workDuration.toString());
+        setState(current => ({...current, durationSeconds: loadedSettings.workDuration * 60, remainingSeconds: loadedSettings.workDuration * 60}));
       }
       setHydrated(true);
     });
@@ -59,24 +67,22 @@ export function useTimer() {
     []
   );
 
-  const autoAdvanceCycle = (current: TimerState): TimerState => {
+  const autoAdvanceCycle = (current: TimerState, currentSettings: Settings): TimerState => {
     let nextPhase: Phase = "work";
-    let nextDuration = DEFAULT_WORK_MINUTES * 60;
+    let nextDuration = currentSettings.workDuration * 60;
     const completed = current.completedSessions + 1;
 
     if (current.phase === "work") {
-      // After a work session, take a break. Every 4th is a long break.
-      if (completed % 4 === 0) {
+      if (completed % currentSettings.sessionsUntilLongBreak === 0) {
         nextPhase = "longBreak";
-        nextDuration = 15 * 60;
+        nextDuration = currentSettings.longBreakDuration * 60;
       } else {
         nextPhase = "shortBreak";
-        nextDuration = 5 * 60;
+        nextDuration = currentSettings.shortBreakDuration * 60;
       }
     } else {
-      // After any break, go back to work
       nextPhase = "work";
-      nextDuration = DEFAULT_WORK_MINUTES * 60;
+      nextDuration = currentSettings.workDuration * 60;
     }
 
     return {
@@ -101,7 +107,7 @@ export function useTimer() {
 
         if (remaining === 0) {
           logSessionCompletion(current.phase, current.durationSeconds);
-          return autoAdvanceCycle(current);
+          return autoAdvanceCycle(current, settingsRef.current);
         }
 
         return { ...current, remainingSeconds: remaining };
@@ -133,7 +139,7 @@ export function useTimer() {
 
   const handleApplyMinutes = useCallback(() => {
     const parsed = Number.parseInt(workMinutesInput, 10);
-    const safeMinutes = Number.isNaN(parsed) ? DEFAULT_WORK_MINUTES : Math.max(1, parsed);
+    const safeMinutes = Number.isNaN(parsed) ? settingsRef.current.workDuration : Math.max(1, parsed);
     const nextDuration = safeMinutes * 60;
     setWorkMinutesInput(safeMinutes.toString());
     updateState((current) => ({
@@ -160,6 +166,7 @@ export function useTimer() {
 
   return {
     state,
+    settings,
     hydrated,
     workMinutesInput,
     setWorkMinutesInput,

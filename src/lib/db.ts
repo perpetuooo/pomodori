@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import type { Settings } from '../types';
 
 export interface DailyStat {
   date: string;
@@ -11,11 +12,22 @@ export interface DailyStat {
 
 export class PomodoriDB extends Dexie {
   dailyStats!: Table<DailyStat>;
+  settings!: Table<Settings>;
 
   constructor() {
     super('PomodoriDB');
-    this.version(1).stores({
-      dailyStats: 'date' // Primary key
+    this.version(2).stores({
+      dailyStats: 'date',
+      settings: 'id'
+    }).upgrade(tx => {
+      tx.table('settings').add({
+        id: 'settings',
+        workDuration: 25,
+        shortBreakDuration: 5,
+        longBreakDuration: 15,
+        sessionsUntilLongBreak: 4,
+        blocklist: []
+      }).catch(() => { });
     });
   }
 }
@@ -78,4 +90,27 @@ export async function logPauseEvent() {
       });
     }
   });
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  id: 'settings',
+  workDuration: 25,
+  shortBreakDuration: 5,
+  longBreakDuration: 15,
+  sessionsUntilLongBreak: 4,
+  blocklist: []
+};
+
+export async function loadSettings(): Promise<Settings> {
+  const settings = await db.settings.get('settings');
+  return settings || DEFAULT_SETTINGS;
+}
+
+export async function saveSettings(settings: Settings): Promise<void> {
+  await db.settings.put(settings);
+
+  const isExtension = typeof chrome !== "undefined" && !!chrome.storage && !!chrome.storage.local;
+  if (isExtension) {
+    await chrome.storage.local.set({ settings });
+  }
 }

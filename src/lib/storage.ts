@@ -1,4 +1,4 @@
-import type { TimerState } from "../types/timer";
+import type { TimerState } from "../types";
 
 const STORAGE_KEY = "timer-state";
 

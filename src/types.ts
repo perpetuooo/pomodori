@@ -8,3 +8,12 @@ export interface TimerState {
   endEpochMs: number | null;
   completedSessions: number;
 }
+
+export interface Settings {
+  id: string;
+  workDuration: number;
+  shortBreakDuration: number;
+  longBreakDuration: number;
+  sessionsUntilLongBreak: number;
+  blocklist: string[];
+}

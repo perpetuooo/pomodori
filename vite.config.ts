@@ -6,6 +6,16 @@ export default defineConfig({
   base: "./",
   build: {
     outDir: "dist",
-    emptyOutDir: true
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        popup: "index.html",
+        options: "options.html",
+        content: "src/lib/content.ts"
+      },
+      output: {
+        entryFileNames: chunk => chunk.name === 'content' ? '[name].js' : 'assets/[name]-[hash].js'
+      }
+    }
   }
 });

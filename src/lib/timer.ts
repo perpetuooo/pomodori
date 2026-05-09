@@ -1,4 +1,4 @@
-import { TimerState } from "../types/timer";
+import { TimerState } from "../types";
 
 export const DEFAULT_WORK_MINUTES = 25;
 
