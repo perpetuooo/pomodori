@@ -15,6 +15,7 @@ function App() {
     handleReset,
     handleApplyMinutes,
     handleSetPhase,
+    handleAdvance,
   } = useTimer();
 
   const [activeTab, setActiveTab] = useState<'timer' | 'stats'>('timer');
@@ -23,6 +24,7 @@ function App() {
   if (!hydrated) return null;
 
   const startOrPauseLabel = state.isRunning ? "Pause" : "Start";
+  const isOvertime = state.remainingSeconds < 0;
 
   return (
     <main className="popup" style={{ width: "320px", minHeight: "400px", display: "flex", flexDirection: "column" }}>
@@ -70,12 +72,15 @@ function App() {
               onClick={() => handleSetPhase('longBreak', settings.longBreakDuration)} disabled={state.isRunning}>Long Break</button>
           </div>
 
-          <p className="clock">{formatClock(state.remainingSeconds)}</p>
+          <p className="clock" style={{ color: isOvertime ? '#e74c3c' : undefined }}>{formatClock(state.remainingSeconds)}</p>
           <p className="meta" style={{ textAlign: "center" }}>Completed Sessions: {state.completedSessions}</p>
 
           <div className="row">
             <button type="button" onClick={handleStartPause}>
               {startOrPauseLabel}
+            </button>
+            <button type="button" onClick={handleAdvance}>
+              Next
             </button>
             <button type="button" onClick={handleReset}>
               Reset

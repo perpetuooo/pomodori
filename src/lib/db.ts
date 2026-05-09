@@ -8,6 +8,9 @@ export interface DailyStat {
   longBreaksCompleted: number;
   pauseCount: number;
   totalFocusSeconds: number;
+  overtimeFocusSeconds: number;
+  overtimeShortBreakSeconds: number;
+  overtimeLongBreakSeconds: number;
 }
 
 export class PomodoriDB extends Dexie {
@@ -16,18 +19,20 @@ export class PomodoriDB extends Dexie {
 
   constructor() {
     super('PomodoriDB');
-    this.version(2).stores({
+    this.version(3).stores({
       dailyStats: 'date',
       settings: 'id'
     }).upgrade(tx => {
-      tx.table('settings').add({
-        id: 'settings',
-        workDuration: 25,
-        shortBreakDuration: 5,
-        longBreakDuration: 15,
-        sessionsUntilLongBreak: 4,
-        blocklist: []
-      }).catch(() => { });
+      tx.table('settings').toCollection().modify(setting => {
+        if (setting.overtimeEnabled === undefined) {
+          setting.overtimeEnabled = false;
+        }
+      });
+      tx.table('dailyStats').toCollection().modify(stat => {
+        stat.overtimeFocusSeconds = stat.overtimeFocusSeconds || 0;
+        stat.overtimeShortBreakSeconds = stat.overtimeShortBreakSeconds || 0;
+        stat.overtimeLongBreakSeconds = stat.overtimeLongBreakSeconds || 0;
+      });
     });
   }
 }
@@ -42,7 +47,7 @@ export function getTodayDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
-export async function logSessionCompletion(phase: 'work' | 'shortBreak' | 'longBreak', durationSeconds: number) {
+export async function logSessionCompletion(phase: 'work' | 'shortBreak' | 'longBreak', durationSeconds: number, overtimeSeconds: number = 0) {
   const today = getTodayDateString();
 
   await db.transaction('rw', db.dailyStats, async () => {
@@ -52,10 +57,13 @@ export async function logSessionCompletion(phase: 'work' | 'shortBreak' | 'longB
       if (phase === 'work') {
         stat.pomodorosCompleted += 1;
         stat.totalFocusSeconds += durationSeconds;
+        stat.overtimeFocusSeconds += overtimeSeconds;
       } else if (phase === 'shortBreak') {
         stat.shortBreaksCompleted += 1;
+        stat.overtimeShortBreakSeconds += overtimeSeconds;
       } else if (phase === 'longBreak') {
         stat.longBreaksCompleted += 1;
+        stat.overtimeLongBreakSeconds += overtimeSeconds;
       }
       await db.dailyStats.put(stat);
     } else {
@@ -65,7 +73,10 @@ export async function logSessionCompletion(phase: 'work' | 'shortBreak' | 'longB
         shortBreaksCompleted: phase === 'shortBreak' ? 1 : 0,
         longBreaksCompleted: phase === 'longBreak' ? 1 : 0,
         pauseCount: 0,
-        totalFocusSeconds: phase === 'work' ? durationSeconds : 0
+        totalFocusSeconds: phase === 'work' ? durationSeconds : 0,
+        overtimeFocusSeconds: phase === 'work' ? overtimeSeconds : 0,
+        overtimeShortBreakSeconds: phase === 'shortBreak' ? overtimeSeconds : 0,
+        overtimeLongBreakSeconds: phase === 'longBreak' ? overtimeSeconds : 0
       });
     }
   });
@@ -86,7 +97,10 @@ export async function logPauseEvent() {
         shortBreaksCompleted: 0,
         longBreaksCompleted: 0,
         pauseCount: 1,
-        totalFocusSeconds: 0
+        totalFocusSeconds: 0,
+        overtimeFocusSeconds: 0,
+        overtimeShortBreakSeconds: 0,
+        overtimeLongBreakSeconds: 0
       });
     }
   });
@@ -98,7 +112,8 @@ export const DEFAULT_SETTINGS: Settings = {
   shortBreakDuration: 5,
   longBreakDuration: 15,
   sessionsUntilLongBreak: 4,
-  blocklist: []
+  blocklist: [],
+  overtimeEnabled: false
 };
 
 export async function loadSettings(): Promise<Settings> {

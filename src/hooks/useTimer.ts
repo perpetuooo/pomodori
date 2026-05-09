@@ -24,13 +24,13 @@ export function useTimer() {
             ? { ...savedTimer, remainingSeconds: getRemainingFromEnd(savedTimer.endEpochMs) }
             : savedTimer;
 
-        // If the timer already expired while popup was closed, mark it as completed
-        const expired = rehydrated.isRunning && rehydrated.remainingSeconds === 0;
-        if (expired) {
+        // If the timer already expired while popup was closed
+        const expired = rehydrated.isRunning && rehydrated.remainingSeconds <= 0;
+        if (expired && !loadedSettings.overtimeEnabled) {
           logSessionCompletion(rehydrated.phase, rehydrated.durationSeconds);
         }
 
-        const finalState: TimerState = expired
+        const finalState: TimerState = expired && !loadedSettings.overtimeEnabled
           ? autoAdvanceCycle(rehydrated, loadedSettings)
           : rehydrated;
 
@@ -105,7 +105,7 @@ export function useTimer() {
 
         const remaining = getRemainingFromEnd(current.endEpochMs);
 
-        if (remaining === 0) {
+        if (remaining <= 0 && !settingsRef.current.overtimeEnabled) {
           logSessionCompletion(current.phase, current.durationSeconds);
           return autoAdvanceCycle(current, settingsRef.current);
         }
@@ -164,6 +164,14 @@ export function useTimer() {
     }));
   }, [updateState]);
 
+  const handleAdvance = useCallback(() => {
+    updateState((current) => {
+      const overtime = current.remainingSeconds < 0 ? Math.abs(current.remainingSeconds) : 0;
+      logSessionCompletion(current.phase, current.durationSeconds, overtime);
+      return autoAdvanceCycle(current, settingsRef.current);
+    });
+  }, [updateState]);
+
   return {
     state,
     settings,
@@ -174,5 +182,6 @@ export function useTimer() {
     handleReset,
     handleApplyMinutes,
     handleSetPhase,
+    handleAdvance,
   };
 }

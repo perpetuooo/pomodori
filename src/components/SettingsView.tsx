@@ -35,7 +35,7 @@ export function SettingsView() {
       .split("\n")
       .map(line => line.trim())
       .filter(line => line.length > 0);
-      
+
     // Combine without duplicates
     const combined = Array.from(new Set([...currentList, ...preset]));
     setBlocklistText(combined.join("\n"));
@@ -48,49 +48,61 @@ export function SettingsView() {
   return (
     <main style={{ maxWidth: "600px", margin: "0 auto", padding: "2rem" }}>
       <h1>Pomodori Settings</h1>
-      
+
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <fieldset style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           <legend>Timer Durations (minutes)</legend>
-          
+
           <label style={{ display: "flex", justifyContent: "space-between" }}>
             Focus Duration:
-            <input 
-              type="number" 
-              min={1} 
-              value={settings.workDuration} 
-              onChange={e => setSettings({...settings, workDuration: parseInt(e.target.value) || 25})} 
+            <input
+              type="number"
+              min={1}
+              value={settings.workDuration}
+              onChange={e => setSettings({ ...settings, workDuration: parseInt(e.target.value) || 25 })}
             />
           </label>
-          
+
           <label style={{ display: "flex", justifyContent: "space-between" }}>
             Short Break Duration:
-            <input 
-              type="number" 
-              min={1} 
-              value={settings.shortBreakDuration} 
-              onChange={e => setSettings({...settings, shortBreakDuration: parseInt(e.target.value) || 5})} 
+            <input
+              type="number"
+              min={1}
+              value={settings.shortBreakDuration}
+              onChange={e => setSettings({ ...settings, shortBreakDuration: parseInt(e.target.value) || 5 })}
             />
           </label>
-          
+
           <label style={{ display: "flex", justifyContent: "space-between" }}>
             Long Break Duration:
-            <input 
-              type="number" 
-              min={1} 
-              value={settings.longBreakDuration} 
-              onChange={e => setSettings({...settings, longBreakDuration: parseInt(e.target.value) || 15})} 
+            <input
+              type="number"
+              min={1}
+              value={settings.longBreakDuration}
+              onChange={e => setSettings({ ...settings, longBreakDuration: parseInt(e.target.value) || 15 })}
             />
           </label>
 
           <label style={{ display: "flex", justifyContent: "space-between" }}>
             Sessions until Long Break:
-            <input 
-              type="number" 
-              min={1} 
-              value={settings.sessionsUntilLongBreak} 
-              onChange={e => setSettings({...settings, sessionsUntilLongBreak: parseInt(e.target.value) || 4})} 
+            <input
+              type="number"
+              min={1}
+              value={settings.sessionsUntilLongBreak}
+              onChange={e => setSettings({ ...settings, sessionsUntilLongBreak: parseInt(e.target.value) || 4 })}
             />
+          </label>
+        </fieldset>
+
+        <fieldset style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <legend>Advanced Mode</legend>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={settings.overtimeEnabled}
+              onChange={e => setSettings({ ...settings, overtimeEnabled: e.target.checked })}
+            />
+            Enable Overtime Mode
           </label>
         </fieldset>
 
@@ -106,9 +118,9 @@ export function SettingsView() {
             <button type="button" onClick={() => addPreset(STREAMING)} style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem" }}>Streaming</button>
           </div>
 
-          <textarea 
-            rows={10} 
-            value={blocklistText} 
+          <textarea
+            rows={10}
+            value={blocklistText}
             onChange={e => setBlocklistText(e.target.value)}
             style={{ width: "100%", padding: "0.5rem", fontFamily: "monospace" }}
             placeholder="twitter.com&#10;youtube.com"

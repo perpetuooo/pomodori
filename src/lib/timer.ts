@@ -16,12 +16,14 @@ export function createInitialTimerState(minutes = DEFAULT_WORK_MINUTES): TimerSt
 }
 
 export function getRemainingFromEnd(endEpochMs: number): number {
-  return Math.max(0, Math.ceil((endEpochMs - Date.now()) / 1000));
+  return Math.ceil((endEpochMs - Date.now()) / 1000);
 }
 
 export function formatClock(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
-  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  const isNegative = totalSeconds < 0;
+  const absSeconds = Math.abs(totalSeconds);
+  const minutes = Math.floor(absSeconds / 60).toString().padStart(2, "0");
+  const seconds = (absSeconds % 60).toString().padStart(2, "0");
   
-  return `${minutes}:${seconds}`;
+  return isNegative ? `+${minutes}:${seconds}` : `${minutes}:${seconds}`;
 }

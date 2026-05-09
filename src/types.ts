@@ -16,4 +16,5 @@ export interface Settings {
   longBreakDuration: number;
   sessionsUntilLongBreak: number;
   blocklist: string[];
+  overtimeEnabled: boolean;
 }
