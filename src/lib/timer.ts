@@ -11,7 +11,8 @@ export function createInitialTimerState(minutes = DEFAULT_WORK_MINUTES): TimerSt
     remainingSeconds: durationSeconds,
     isRunning: false,
     endEpochMs: null,
-    completedSessions: 0
+    completedSessions: 0,
+    hasAlerted: false
   };
 }
 

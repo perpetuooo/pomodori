@@ -2,7 +2,7 @@ import { useState } from "react";
 import { formatClock } from "./lib/timer";
 import { useTimer } from "./hooks/useTimer";
 import { StatsView } from "./components/StatsView";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Settings as SettingsIcon, Volume2, VolumeX } from "lucide-react";
 
 function App() {
   const {
@@ -16,6 +16,7 @@ function App() {
     handleApplyMinutes,
     handleSetPhase,
     handleAdvance,
+    toggleMute,
   } = useTimer();
 
   const [activeTab, setActiveTab] = useState<'timer' | 'stats'>('timer');
@@ -47,6 +48,14 @@ function App() {
               Stats
             </button>
           </div>
+          <button
+            type="button"
+            onClick={toggleMute}
+            title={settings.alarms?.soundEnabled ? "Mute Alarms" : "Unmute Alarms"}
+            style={{ padding: "0.2rem", display: "flex", alignItems: "center" }}
+          >
+            {settings.alarms?.soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
           <button 
             type="button" 
             onClick={() => chrome.runtime.openOptionsPage()}

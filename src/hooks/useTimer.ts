@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createInitialTimerState, getRemainingFromEnd } from "../lib/timer";
 import { loadTimerState, saveTimerState } from "../lib/storage";
 import { TimerState, Phase, Settings } from "../types";
-import { logPauseEvent, logSessionCompletion, loadSettings, DEFAULT_SETTINGS } from "../lib/db";
+import { logPauseEvent, logSessionCompletion, loadSettings, saveSettings, DEFAULT_SETTINGS } from "../lib/db";
+import { triggerPhaseAlert } from "../lib/alerts";
 
 export function useTimer() {
   const [state, setState] = useState<TimerState>(createInitialTimerState());
@@ -93,6 +94,7 @@ export function useTimer() {
       isRunning: false,
       endEpochMs: null,
       completedSessions: completed,
+      hasAlerted: false,
     };
   };
 
@@ -105,12 +107,18 @@ export function useTimer() {
 
         const remaining = getRemainingFromEnd(current.endEpochMs);
 
+        let willAlert = current.hasAlerted;
+        if (remaining <= 0 && !current.hasAlerted) {
+          triggerPhaseAlert(current.phase, settingsRef.current);
+          willAlert = true;
+        }
+
         if (remaining <= 0 && !settingsRef.current.overtimeEnabled) {
           logSessionCompletion(current.phase, current.durationSeconds);
           return autoAdvanceCycle(current, settingsRef.current);
         }
 
-        return { ...current, remainingSeconds: remaining };
+        return { ...current, remainingSeconds: remaining, hasAlerted: willAlert };
       });
     }, 200);
 
@@ -134,6 +142,7 @@ export function useTimer() {
       remainingSeconds: current.durationSeconds,
       isRunning: false,
       endEpochMs: null,
+      hasAlerted: false,
     }));
   }, [updateState]);
 
@@ -148,6 +157,7 @@ export function useTimer() {
       remainingSeconds: nextDuration,
       isRunning: false,
       endEpochMs: null,
+      hasAlerted: false,
     }));
   }, [workMinutesInput, updateState]);
 
@@ -161,6 +171,7 @@ export function useTimer() {
       remainingSeconds: nextDuration,
       isRunning: false,
       endEpochMs: null,
+      hasAlerted: false,
     }));
   }, [updateState]);
 
@@ -171,6 +182,20 @@ export function useTimer() {
       return autoAdvanceCycle(current, settingsRef.current);
     });
   }, [updateState]);
+
+  const toggleMute = useCallback(async () => {
+    const currentSettings = settingsRef.current;
+    const newSettings = {
+      ...currentSettings,
+      alarms: {
+        ...currentSettings.alarms,
+        soundEnabled: !currentSettings.alarms.soundEnabled
+      }
+    };
+    await saveSettings(newSettings);
+    setSettings(newSettings);
+    settingsRef.current = newSettings;
+  }, []);
 
   return {
     state,
@@ -183,5 +208,6 @@ export function useTimer() {
     handleApplyMinutes,
     handleSetPhase,
     handleAdvance,
+    toggleMute,
   };
 }

@@ -1,12 +1,14 @@
 import { useEffect, useState, FormEvent } from "react";
 import { Settings } from "../types";
-import { loadSettings, saveSettings, DEFAULT_SETTINGS } from "../lib/db";
+import { loadSettings, saveSettings, db, DEFAULT_SETTINGS } from "../lib/db";
 
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [blocklistText, setBlocklistText] = useState("");
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState("");
 
   useEffect(() => {
     loadSettings().then((loaded) => {
@@ -28,6 +30,42 @@ export function SettingsView() {
     setSettings(updatedSettings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError("");
+    setUploadSuccess("");
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadError("File is too large. Maximum size is 2MB.");
+      return;
+    }
+
+    const audioUrl = URL.createObjectURL(file);
+    const audio = new Audio(audioUrl);
+
+    audio.onloadedmetadata = async () => {
+      URL.revokeObjectURL(audioUrl);
+      if (audio.duration > 10) {
+        setUploadError("Audio duration must be 10 seconds or less.");
+        return;
+      }
+
+      try {
+        await db.audioFiles.put({ id: "customAlarm", blob: file });
+        setUploadSuccess("Custom alarm saved successfully!");
+        setTimeout(() => setUploadSuccess(""), 3000);
+      } catch (err) {
+        setUploadError("Failed to save audio file.");
+      }
+    };
+
+    audio.onerror = () => {
+      URL.revokeObjectURL(audioUrl);
+      setUploadError("Invalid audio file.");
+    };
   };
 
   const addPreset = (preset: string[]) => {
@@ -104,6 +142,60 @@ export function SettingsView() {
             />
             Enable Overtime Mode
           </label>
+        </fieldset>
+
+        <fieldset style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <legend>Alarms & Notifications</legend>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+            <input 
+              type="checkbox" 
+              checked={settings.alarms?.workEnabled ?? true} 
+              onChange={e => setSettings({...settings, alarms: {...settings.alarms, workEnabled: e.target.checked}})} 
+            />
+            Ring on Focus complete
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+            <input 
+              type="checkbox" 
+              checked={settings.alarms?.shortBreakEnabled ?? true} 
+              onChange={e => setSettings({...settings, alarms: {...settings.alarms, shortBreakEnabled: e.target.checked}})} 
+            />
+            Ring on Short Break complete
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+            <input 
+              type="checkbox" 
+              checked={settings.alarms?.longBreakEnabled ?? true} 
+              onChange={e => setSettings({...settings, alarms: {...settings.alarms, longBreakEnabled: e.target.checked}})} 
+            />
+            Ring on Long Break complete
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+            <input 
+              type="checkbox" 
+              checked={settings.alarms?.overtimeEnabled ?? true} 
+              onChange={e => setSettings({...settings, alarms: {...settings.alarms, overtimeEnabled: e.target.checked}})} 
+            />
+            Ring exactly at 00:00 when Overtime Mode is active
+          </label>
+
+          <label style={{ display: "flex", justifyContent: "space-between", marginTop: "0.5rem" }}>
+            Alarm Volume:
+            <input 
+              type="range" 
+              min="0" max="1" step="0.1" 
+              value={settings.alarms?.volume ?? 0.5} 
+              onChange={e => setSettings({...settings, alarms: {...settings.alarms, volume: parseFloat(e.target.value)}})} 
+            />
+          </label>
+
+          <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <span style={{ fontSize: "0.9rem", fontWeight: "bold" }}>Custom Alarm Sound</span>
+            <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.8 }}>Upload your own sound (max 10s, 2MB). Overrides the default alarm.</p>
+            <input type="file" accept="audio/*" onChange={handleAudioUpload} />
+            {uploadError && <span style={{ color: "#e74c3c", fontSize: "0.85rem" }}>{uploadError}</span>}
+            {uploadSuccess && <span style={{ color: "#2ecc71", fontSize: "0.85rem" }}>{uploadSuccess}</span>}
+          </div>
         </fieldset>
 
         <fieldset style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>

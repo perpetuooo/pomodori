@@ -13,19 +13,36 @@ export interface DailyStat {
   overtimeLongBreakSeconds: number;
 }
 
+export interface AudioFile {
+  id: string;
+  blob: Blob;
+}
+
 export class PomodoriDB extends Dexie {
   dailyStats!: Table<DailyStat>;
   settings!: Table<Settings>;
+  audioFiles!: Table<AudioFile>;
 
   constructor() {
     super('PomodoriDB');
-    this.version(3).stores({
+    this.version(4).stores({
       dailyStats: 'date',
-      settings: 'id'
+      settings: 'id',
+      audioFiles: 'id'
     }).upgrade(tx => {
       tx.table('settings').toCollection().modify(setting => {
         if (setting.overtimeEnabled === undefined) {
           setting.overtimeEnabled = false;
+        }
+        if (setting.alarms === undefined) {
+          setting.alarms = {
+            workEnabled: true,
+            shortBreakEnabled: true,
+            longBreakEnabled: true,
+            overtimeEnabled: true,
+            volume: 0.5,
+            soundEnabled: true
+          };
         }
       });
       tx.table('dailyStats').toCollection().modify(stat => {
@@ -113,7 +130,15 @@ export const DEFAULT_SETTINGS: Settings = {
   longBreakDuration: 15,
   sessionsUntilLongBreak: 4,
   blocklist: [],
-  overtimeEnabled: false
+  overtimeEnabled: false,
+  alarms: {
+    workEnabled: true,
+    shortBreakEnabled: true,
+    longBreakEnabled: true,
+    overtimeEnabled: true,
+    volume: 0.5,
+    soundEnabled: true
+  }
 };
 
 export async function loadSettings(): Promise<Settings> {

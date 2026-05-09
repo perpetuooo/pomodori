@@ -7,6 +7,16 @@ export interface TimerState {
   isRunning: boolean;
   endEpochMs: number | null;
   completedSessions: number;
+  hasAlerted: boolean;
+}
+
+export interface AlarmSettings {
+  workEnabled: boolean;
+  shortBreakEnabled: boolean;
+  longBreakEnabled: boolean;
+  overtimeEnabled: boolean;
+  volume: number;
+  soundEnabled: boolean;
 }
 
 export interface Settings {
@@ -17,4 +27,5 @@ export interface Settings {
   sessionsUntilLongBreak: number;
   blocklist: string[];
   overtimeEnabled: boolean;
+  alarms: AlarmSettings;
 }
