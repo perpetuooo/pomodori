@@ -10,7 +10,7 @@
     "96": "icons/tomato-96.png"
   },
 
-  "permissions": ["activeTab", "scripting", "storage", "alarms"],
+  "permissions": ["activeTab", "scripting", "storage", "alarms", "notifications"],
   "browser_specific_settings": {
     "gecko": {
       "id": "tomato@mozilla.org",

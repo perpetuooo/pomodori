@@ -14,35 +14,51 @@ export function useTimer() {
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
-    Promise.all([loadTimerState(), loadSettings()]).then(([savedTimer, loadedSettings]) => {
-      setSettings(loadedSettings);
-      settingsRef.current = loadedSettings;
-      
-      if (savedTimer) {
-        // If the timer was running when the popup closed, recalculate remaining time
-        const rehydrated: TimerState =
-          savedTimer.isRunning && savedTimer.endEpochMs
-            ? { ...savedTimer, remainingSeconds: getRemainingFromEnd(savedTimer.endEpochMs) }
-            : savedTimer;
+    const isExtension = typeof chrome !== "undefined" && !!chrome.storage && !!chrome.storage.local;
 
-        // If the timer already expired while popup was closed
-        const expired = rehydrated.isRunning && rehydrated.remainingSeconds <= 0;
-        if (expired && !loadedSettings.overtimeEnabled) {
-          logSessionCompletion(rehydrated.phase, rehydrated.durationSeconds);
+    const load = () => {
+      Promise.all([loadTimerState(), loadSettings()]).then(([savedTimer, loadedSettings]) => {
+        setSettings(loadedSettings);
+        settingsRef.current = loadedSettings;
+        
+        if (savedTimer) {
+          const rehydrated: TimerState =
+            savedTimer.isRunning && savedTimer.endEpochMs
+              ? { ...savedTimer, remainingSeconds: getRemainingFromEnd(savedTimer.endEpochMs) }
+              : savedTimer;
+
+          const expired = rehydrated.isRunning && rehydrated.remainingSeconds <= 0;
+          if (expired && !loadedSettings.overtimeEnabled) {
+            logSessionCompletion(rehydrated.phase, rehydrated.durationSeconds);
+          }
+
+          const finalState: TimerState = expired && !loadedSettings.overtimeEnabled
+            ? autoAdvanceCycle(rehydrated, loadedSettings)
+            : rehydrated;
+
+          setState(finalState);
+          setWorkMinutesInput(String(Math.round(finalState.durationSeconds / 60)));
+        } else {
+          setWorkMinutesInput(loadedSettings.workDuration.toString());
+          setState(current => ({...current, durationSeconds: loadedSettings.workDuration * 60, remainingSeconds: loadedSettings.workDuration * 60}));
         }
+        setHydrated(true);
+      });
+    };
 
-        const finalState: TimerState = expired && !loadedSettings.overtimeEnabled
-          ? autoAdvanceCycle(rehydrated, loadedSettings)
-          : rehydrated;
+    load();
 
-        setState(finalState);
-        setWorkMinutesInput(String(Math.round(finalState.durationSeconds / 60)));
-      } else {
-        setWorkMinutesInput(loadedSettings.workDuration.toString());
-        setState(current => ({...current, durationSeconds: loadedSettings.workDuration * 60, remainingSeconds: loadedSettings.workDuration * 60}));
-      }
-      setHydrated(true);
-    });
+    if (isExtension) {
+      const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+        if (changes.settings) {
+          const newSettings = changes.settings.newValue as Settings;
+          setSettings(newSettings);
+          settingsRef.current = newSettings;
+        }
+      };
+      chrome.storage.onChanged.addListener(listener);
+      return () => chrome.storage.onChanged.removeListener(listener);
+    }
   }, []);
 
   const updateState = useCallback(
@@ -68,10 +84,10 @@ export function useTimer() {
     []
   );
 
-  const autoAdvanceCycle = (current: TimerState, currentSettings: Settings, skipped = false): TimerState => {
+  const autoAdvanceCycle = (current: TimerState, currentSettings: Settings): TimerState => {
     let nextPhase: Phase = "work";
     let nextDuration = currentSettings.workDuration * 60;
-    const completed = skipped ? current.completedSessions : current.completedSessions + 1;
+    const completed = current.phase === "work" ? current.completedSessions + 1 : current.completedSessions;
 
     if (current.phase === "work") {
       if (completed % currentSettings.sessionsUntilLongBreak === 0) {
@@ -86,13 +102,15 @@ export function useTimer() {
       nextDuration = currentSettings.workDuration * 60;
     }
 
+    const shouldAutoStart = currentSettings.autoStartNextSession;
+
     return {
       ...current,
       phase: nextPhase,
       durationSeconds: nextDuration,
       remainingSeconds: nextDuration,
-      isRunning: false,
-      endEpochMs: null,
+      isRunning: shouldAutoStart,
+      endEpochMs: shouldAutoStart ? Date.now() + nextDuration * 1000 : null,
       completedSessions: completed,
       hasAlerted: false,
     };
@@ -109,7 +127,7 @@ export function useTimer() {
 
         let willAlert = current.hasAlerted;
         if (remaining <= 0 && !current.hasAlerted) {
-          triggerPhaseAlert(current.phase, settingsRef.current);
+          triggerPhaseAlert(current.phase, settingsRef.current, settingsRef.current.overtimeEnabled);
           willAlert = true;
         }
 
@@ -184,7 +202,7 @@ export function useTimer() {
         logSessionCompletion(current.phase, current.durationSeconds, overtime);
       }
       
-      return autoAdvanceCycle(current, settingsRef.current, isSkipped);
+      return autoAdvanceCycle(current, settingsRef.current);
     });
   }, [updateState]);
 

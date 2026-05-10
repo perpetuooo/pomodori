@@ -14,12 +14,26 @@ export function SettingsView() {
   const [customAlarms, setCustomAlarms] = useState<Array<{ id: string, name: string }>>([]);
 
   useEffect(() => {
-    loadSettings().then((loaded) => {
-      setSettings(loaded);
-      setBlocklistText(loaded.blocklist.join("\n"));
-      setLoading(false);
-    });
+    const load = () => {
+      loadSettings().then((loaded) => {
+        setSettings(loaded);
+        setBlocklistText(loaded.blocklist.join("\n"));
+        setLoading(false);
+      });
+    };
+    load();
     loadAlarms();
+
+    const isExtension = typeof chrome !== "undefined" && !!chrome.storage && !!chrome.storage.local;
+    if (isExtension) {
+      const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+        if (changes.settings) {
+          setSettings(changes.settings.newValue as Settings);
+        }
+      };
+      chrome.storage.onChanged.addListener(listener);
+      return () => chrome.storage.onChanged.removeListener(listener);
+    }
   }, []);
 
   const loadAlarms = () => {
@@ -171,42 +185,47 @@ export function SettingsView() {
             />
             Enable Overtime Mode
           </label>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={settings.autoStartNextSession}
+              onChange={e => setSettings({ ...settings, autoStartNextSession: e.target.checked })}
+            />
+            Autostart next session automatically
+          </label>
         </fieldset>
 
         <fieldset style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           <legend>Alarms & Notifications</legend>
+          
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
             <input
               type="checkbox"
-              checked={settings.alarms?.workEnabled ?? true}
-              onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, workEnabled: e.target.checked } })}
+              checked={settings.notificationsEnabled}
+              onChange={e => setSettings({ ...settings, notificationsEnabled: e.target.checked })}
             />
-            Ring on Focus complete
+            Enable Notifications
           </label>
+
           <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
             <input
               type="checkbox"
-              checked={settings.alarms?.shortBreakEnabled ?? true}
-              onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, shortBreakEnabled: e.target.checked } })}
+              checked={settings.alarms.ringOnComplete}
+              onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, ringOnComplete: e.target.checked } })}
             />
-            Ring on Short Break complete
+            Ring on session complete
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={settings.alarms?.longBreakEnabled ?? true}
-              onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, longBreakEnabled: e.target.checked } })}
-            />
-            Ring on Long Break complete
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={settings.alarms?.overtimeEnabled ?? true}
-              onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, overtimeEnabled: e.target.checked } })}
-            />
-            Ring at 00:00 on Overtime Mode
-          </label>
+
+          {settings.alarms.ringOnComplete && (
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", marginLeft: "1.5rem", fontSize: "0.9rem", opacity: 0.9 }}>
+              <input
+                type="checkbox"
+                checked={settings.alarms.overtimeRingEnabled}
+                onChange={e => setSettings({ ...settings, alarms: { ...settings.alarms, overtimeRingEnabled: e.target.checked } })}
+              />
+              Ring at 00:00 on Overtime Mode
+            </label>
+          )}
 
           <label style={{ display: "flex", justifyContent: "space-between", marginTop: "0.5rem" }}>
             Alarm Volume:

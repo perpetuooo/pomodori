@@ -65,26 +65,30 @@ export function showNotification(title: string, message: string) {
   }
 }
 
-export function triggerPhaseAlert(phase: Phase, settings: Settings) {
+export function triggerPhaseAlert(phase: Phase, settings: Settings, isOvertimeAlert: boolean = false) {
   const alarms = settings.alarms;
-  let shouldRing = false; let title = "Pomodori"; let message = "";
+  const shouldRing = alarms.ringOnComplete && (isOvertimeAlert ? alarms.overtimeRingEnabled : true);
+  const shouldNotify = settings.notificationsEnabled;
+
+  let title = "Pomodori";
+  let message = "";
 
   if (phase === "work") {
-    shouldRing = alarms.workEnabled;
     title = "Focus Time Complete!";
     message = "Time for a break.";
   } else if (phase === "shortBreak") {
-    shouldRing = alarms.shortBreakEnabled;
     title = "Short Break Complete!";
     message = "Ready to focus?";
   } else if (phase === "longBreak") {
-    shouldRing = alarms.longBreakEnabled;
     title = "Long Break Complete!";
     message = "Ready to focus?";
   }
 
   if (shouldRing) {
     playAlarm(settings);
+  }
+  
+  if (shouldNotify) {
     showNotification(title, message);
   }
 }

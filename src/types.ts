@@ -11,10 +11,8 @@ export interface TimerState {
 }
 
 export interface AlarmSettings {
-  workEnabled: boolean;
-  shortBreakEnabled: boolean;
-  longBreakEnabled: boolean;
-  overtimeEnabled: boolean;
+  ringOnComplete: boolean;
+  overtimeRingEnabled: boolean;
   volume: number;
   soundEnabled: boolean;
   activeCustomAlarmId: string | null;
@@ -28,5 +26,7 @@ export interface Settings {
   sessionsUntilLongBreak: number;
   blocklist: string[];
   overtimeEnabled: boolean;
+  autoStartNextSession: boolean;
+  notificationsEnabled: boolean;
   alarms: AlarmSettings;
 }

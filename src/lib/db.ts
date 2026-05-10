@@ -133,11 +133,11 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionsUntilLongBreak: 4,
   blocklist: [],
   overtimeEnabled: false,
+  autoStartNextSession: false,
+  notificationsEnabled: true,
   alarms: {
-    workEnabled: true,
-    shortBreakEnabled: true,
-    longBreakEnabled: true,
-    overtimeEnabled: true,
+    ringOnComplete: true,
+    overtimeRingEnabled: true,
     volume: 0.5,
     soundEnabled: true,
     activeCustomAlarmId: null
