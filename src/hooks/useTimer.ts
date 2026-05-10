@@ -202,6 +202,17 @@ export function useTimer() {
     settingsRef.current = newSettings;
   }, []);
 
+  const toggleOvertime = useCallback(async () => {
+    const currentSettings = settingsRef.current;
+    const newSettings = {
+      ...currentSettings,
+      overtimeEnabled: !currentSettings.overtimeEnabled
+    };
+    await saveSettings(newSettings);
+    setSettings(newSettings);
+    settingsRef.current = newSettings;
+  }, []);
+
   return {
     state,
     settings,
@@ -214,5 +225,6 @@ export function useTimer() {
     handleSetPhase,
     handleAdvance,
     toggleMute,
+    toggleOvertime,
   };
 }

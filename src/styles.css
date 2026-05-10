@@ -1,5 +1,13 @@
 :root {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  --bg-color: #2B221F;
+  --focus-color: #E8433F;
+  --short-break-color: #3A9E5F;
+  --long-break-color: #3A80C0;
+  --overtime-color: #5D4FB5;
+  --text-primary: #F2E8DE;
+  --text-secondary: #DDD0C4;
+  --button-hover: rgba(255, 255, 255, 0.1);
 }
 
 * {
@@ -8,49 +16,167 @@
 
 body {
   margin: 0;
-  min-width: 300px;
-  background: #f6f7f8;
+  min-width: 320px;
+  background: var(--bg-color);
+  color: var(--text-primary);
 }
 
 .popup {
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 440px;
 }
 
-.popup h1 {
-  margin: 0 0 12px;
-  font-size: 18px;
-}
-
-.clock {
-  font-size: 42px;
-  font-weight: 700;
-  text-align: center;
-  margin: 8px 0 14px;
-}
-
-.meta {
-  margin: 0 0 12px;
-  color: #444;
-  font-size: 14px;
-}
-
-.row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.row button,
-.row input,
-button.full {
-  width: 100%;
+/* Reset buttons */
+button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
   padding: 8px;
-  border: 1px solid #c7c7c7;
   border-radius: 8px;
-  background: #fff;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-button.full {
-  margin-top: 8px;
+button:hover {
+  background: var(--button-hover);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Top Icons */
+.top-icons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.top-icons button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--text-secondary);
+  border-radius: 50%;
+}
+
+.top-icons button:hover,
+.top-icons button.active-icon {
+  color: var(--text-primary);
+}
+
+.overtime-btn {
+  border: 2px solid transparent;
+}
+
+.overtime-btn.active {
+  color: var(--overtime-color) !important;
+  border-color: var(--overtime-color);
+  background: rgba(114, 9, 183, 0.1) !important;
+}
+
+/* Timer Content */
+.timer-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.mode-selectors {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.mode-selectors button {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 16px;
+  color: var(--text-secondary);
+}
+
+.mode-selectors button.active {
+  color: var(--text-primary);
+}
+
+/* Clock area */
+.clock-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: 30px 0;
+}
+
+.progress-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.clock-text {
+  font-size: 48px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  z-index: 1;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  margin-top: 32px;
+}
+
+.controls button {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.controls button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.controls .main-action {
+  width: 60px;
+  height: 60px;
+  background: var(--text-primary);
+  color: var(--bg-color);
+}
+
+.controls .main-action:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* Sessions Counter */
+.sessions-counter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.tomato-icon {
+  font-size: 18px;
 }
