@@ -55,6 +55,12 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 440px;
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.popup-stats {
+  width: 800px;
+  height: 600px;
 }
 
 /* Reset buttons */
@@ -208,4 +214,29 @@ button:disabled {
 
 .tomato-icon {
   font-size: 18px;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(232, 67, 63, 0.4) rgba(255, 255, 255, 0.04);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 99px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(232, 67, 63, 0.45);
+  border-radius: 99px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(232, 67, 63, 0.75);
 }

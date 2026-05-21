@@ -8,6 +8,8 @@ export interface DailyStat {
   longBreaksCompleted: number;
   pauseCount: number;
   totalFocusSeconds: number;
+  totalShortBreakSeconds: number;
+  totalLongBreakSeconds: number;
   overtimeFocusSeconds: number;
   overtimeShortBreakSeconds: number;
   overtimeLongBreakSeconds: number;
@@ -26,7 +28,7 @@ export class PomodoriDB extends Dexie {
 
   constructor() {
     super('PomodoriDB');
-    this.version(4).stores({
+    this.version(5).stores({
       dailyStats: 'date',
       settings: 'id',
       audioFiles: 'id'
@@ -51,6 +53,8 @@ export class PomodoriDB extends Dexie {
         stat.overtimeFocusSeconds = stat.overtimeFocusSeconds || 0;
         stat.overtimeShortBreakSeconds = stat.overtimeShortBreakSeconds || 0;
         stat.overtimeLongBreakSeconds = stat.overtimeLongBreakSeconds || 0;
+        stat.totalShortBreakSeconds = stat.totalShortBreakSeconds || 0;
+        stat.totalLongBreakSeconds = stat.totalLongBreakSeconds || 0;
       });
     });
   }
@@ -79,9 +83,11 @@ export async function logSessionCompletion(phase: 'work' | 'shortBreak' | 'longB
         stat.overtimeFocusSeconds += overtimeSeconds;
       } else if (phase === 'shortBreak') {
         stat.shortBreaksCompleted += 1;
+        stat.totalShortBreakSeconds += durationSeconds;
         stat.overtimeShortBreakSeconds += overtimeSeconds;
       } else if (phase === 'longBreak') {
         stat.longBreaksCompleted += 1;
+        stat.totalLongBreakSeconds += durationSeconds;
         stat.overtimeLongBreakSeconds += overtimeSeconds;
       }
       await db.dailyStats.put(stat);
@@ -93,6 +99,8 @@ export async function logSessionCompletion(phase: 'work' | 'shortBreak' | 'longB
         longBreaksCompleted: phase === 'longBreak' ? 1 : 0,
         pauseCount: 0,
         totalFocusSeconds: phase === 'work' ? durationSeconds : 0,
+        totalShortBreakSeconds: phase === 'shortBreak' ? durationSeconds : 0,
+        totalLongBreakSeconds: phase === 'longBreak' ? durationSeconds : 0,
         overtimeFocusSeconds: phase === 'work' ? overtimeSeconds : 0,
         overtimeShortBreakSeconds: phase === 'shortBreak' ? overtimeSeconds : 0,
         overtimeLongBreakSeconds: phase === 'longBreak' ? overtimeSeconds : 0
@@ -117,6 +125,8 @@ export async function logPauseEvent() {
         longBreaksCompleted: 0,
         pauseCount: 1,
         totalFocusSeconds: 0,
+        totalShortBreakSeconds: 0,
+        totalLongBreakSeconds: 0,
         overtimeFocusSeconds: 0,
         overtimeShortBreakSeconds: 0,
         overtimeLongBreakSeconds: 0

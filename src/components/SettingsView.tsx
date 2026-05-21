@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Clock, Bell, Settings as SettingsIcon, Shield, Trash2, Volume2 } from "lucide-react";
+import { Check, Clock, Bell, Settings as SettingsIcon, Shield, Trash2, Volume2, Download, Upload, Bug } from "lucide-react";
 
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -155,10 +155,107 @@ export function SettingsView() {
     setBlocklistText(combined.join("\n"));
   };
 
+  const exportData = async () => {
+    const statsData = await db.dailyStats.toArray();
+    const audioData = await db.audioFiles.toArray();
+
+    const audioFilesB64 = await Promise.all(audioData.map(async file => {
+      const b64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file.blob);
+      });
+      return { id: file.id, name: file.name, blob: b64 };
+    }));
+
+    const exportObj = {
+      dailyStats: statsData,
+      audioFiles: audioFilesB64
+    };
+
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "pomodori_export.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importData = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        const statsToImport = json.dailyStats || [];
+        const audioToImport: Array<{ id: string, name: string, blob: string }> = json.audioFiles || [];
+
+        await db.transaction('rw', db.dailyStats, db.audioFiles, async () => {
+          for (const item of statsToImport) {
+            await db.dailyStats.put(item);
+          }
+
+          for (const item of audioToImport) {
+            const res = await fetch(item.blob);
+            const blob = await res.blob();
+            await db.audioFiles.put({ id: item.id, name: item.name, blob });
+          }
+        });
+        alert("Data imported successfully!");
+      } catch (err) {
+        alert("Error importing data. Invalid file.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const clearData = async () => {
+    if (window.confirm("Are you sure you want to delete all statistics data? This cannot be undone.")) {
+      await db.dailyStats.clear();
+      alert("Statistics cleared.");
+    }
+  };
+
+  const generateFakeData = async () => {
+    if (!window.confirm("This will generate fake data for the last 60 days. Proceed?")) return;
+
+    await db.transaction('rw', db.dailyStats, async () => {
+      const today = new Date();
+      for (let i = 0; i < 60; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+        // Randomly skip some days to create breaks in streaks
+        if (Math.random() > 0.8) continue;
+
+        const pomodoros = Math.floor(Math.random() * 8) + 1; // 1 to 8 pomodoros
+        const focusSeconds = pomodoros * 25 * 60;
+
+        await db.dailyStats.put({
+          date: dateStr,
+          pomodorosCompleted: pomodoros,
+          shortBreaksCompleted: pomodoros,
+          longBreaksCompleted: Math.floor(pomodoros / 4),
+          pauseCount: Math.floor(Math.random() * 5),
+          totalFocusSeconds: focusSeconds,
+          totalShortBreakSeconds: pomodoros * 5 * 60,
+          totalLongBreakSeconds: Math.floor(pomodoros / 4) * 15 * 60,
+          overtimeFocusSeconds: Math.floor(Math.random() * 600),
+          overtimeShortBreakSeconds: Math.floor(Math.random() * 120),
+          overtimeLongBreakSeconds: Math.floor(Math.random() * 300)
+        });
+      }
+    });
+    alert("Fake data generated successfully!");
+  };
   const SOCIAL_MEDIA = socialMediaPreset.split("\n").map(l => l.trim()).filter(Boolean);
   const STREAMING = streamingPreset.split("\n").map(l => l.trim()).filter(Boolean);
 
-  const getComponentClasses = () => "bg-black/20 border-white/10 backdrop-blur-sm rounded-md"; // Revertido para os boxes
+  const getComponentClasses = () => "bg-black/20 border-white/10 backdrop-blur-sm rounded-md";
 
   if (loading) return <div className="p-8 text-center text-muted-foreground">Loading settings...</div>;
 
@@ -315,8 +412,8 @@ export function SettingsView() {
           <section id="advanced" className="scroll-mt-12">
             <Card className="bg-white/5 border-white/10 overflow-hidden relative">
               <CardHeader>
-                <CardTitle className="text-2xl flex items-center gap-2">Advanced Modes</CardTitle>
-                <CardDescription>Extra features to power up your workflow.</CardDescription>
+                <CardTitle className="text-2xl flex items-center gap-2">Advanced</CardTitle>
+                <CardDescription>Extra features.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -333,6 +430,30 @@ export function SettingsView() {
                     <p className="text-sm text-muted-foreground">Automatically start the next timer when the current one finishes.</p>
                   </div>
                   <Switch checked={settings.autoStartNextSession} onCheckedChange={c => setSettings({ ...settings, autoStartNextSession: c })} />
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <Label>Data Management</Label>
+                  <p className="text-sm text-muted-foreground">Import, export, or clear your statistics and audio data.</p>
+                  <div className="flex gap-4">
+                    <Button type="button" variant="outline" onClick={exportData} className="gap-2">
+                      <Download className="w-4 h-4" /> Export Configuration
+                    </Button>
+                    <Label className="cursor-pointer">
+                      <div className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground gap-2">
+                        <Upload className="w-4 h-4" /> Import Configuration
+                      </div>
+                      <input type="file" accept=".json" onChange={importData} className="hidden" />
+                    </Label>
+                  </div>
+                  <div className="pt-2 flex gap-4">
+                    <Button type="button" variant="destructive" onClick={clearData} className="gap-2">
+                      <Trash2 className="w-4 h-4" /> Clear All Statistics
+                    </Button>
+                    <Button type="button" variant="outline" onClick={generateFakeData} className="gap-2 border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10">
+                      <Bug className="w-4 h-4" /> Generate Debug Data
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

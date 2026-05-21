@@ -84,43 +84,44 @@ function App() {
   const displayColor = isOvertime ? "var(--overtime-color)" : currentColor;
 
   return (
-    <main className="popup">
-      <div className="top-icons">
-        <button
-          type="button"
-          onClick={toggleMute}
-          title={settings.alarms?.soundEnabled ? "Mute Alarms" : "Unmute Alarms"}
-        >
-          {settings.alarms?.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-        </button>
-        <button
-          type="button"
-          onClick={toggleOvertime}
-          disabled={state.isRunning}
-          className={`overtime-btn ${settings.overtimeEnabled ? 'active' : ''}`}
-          title="Toggle Overtime mode"
-        >
-          <Flame size={18} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab(activeTab === 'stats' ? 'timer' : 'stats')}
-          title="Stats"
-          className={activeTab === 'stats' ? 'active-icon' : ''}
-        >
-          <BarChart2 size={18} />
-        </button>
-        <button
-          type="button"
-          onClick={() => chrome.runtime.openOptionsPage()}
-          title="Settings"
-        >
-          <SettingsIcon size={18} />
-        </button>
-      </div>
-
+    <main className={`popup ${activeTab === 'stats' ? 'popup-stats' : ''}`}>
       {activeTab === 'timer' && (
-        <div className="timer-content">
+        <>
+          <div className="top-icons">
+            <button
+              type="button"
+              onClick={toggleMute}
+              title={settings.alarms?.soundEnabled ? "Mute Alarms" : "Unmute Alarms"}
+            >
+              {settings.alarms?.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
+            <button
+              type="button"
+              onClick={toggleOvertime}
+              disabled={state.isRunning}
+              className={`overtime-btn ${settings.overtimeEnabled ? 'active' : ''}`}
+              title="Toggle Overtime mode"
+            >
+              <Flame size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('stats')}
+              title="Stats"
+              className=""
+            >
+              <BarChart2 size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => chrome.runtime.openOptionsPage()}
+              title="Settings"
+            >
+              <SettingsIcon size={18} />
+            </button>
+          </div>
+
+          <div className="timer-content">
           <div className="mode-selectors">
             <button
               type="button"
@@ -173,11 +174,11 @@ function App() {
               {isConclude ? <CheckCircle size={24} /> : <SkipForward size={24} />}
             </button>
           </div>
-          
-        </div>
+          </div>
+        </>
       )}
 
-      {activeTab === 'stats' && <StatsView />}
+      {activeTab === 'stats' && <StatsView onBack={() => setActiveTab('timer')} />}
     </main>
   );
 }

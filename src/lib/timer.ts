@@ -28,3 +28,25 @@ export function formatClock(totalSeconds: number): string {
   
   return isNegative ? `+${minutes}:${seconds}` : `${minutes}:${seconds}`;
 }
+
+export function formatStatsDuration(totalSeconds: number): string {
+  if (totalSeconds < 60) return "< 1m";
+  const d = Math.floor(totalSeconds / (3600 * 24));
+  const h = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+
+  const parts = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0) parts.push(`${m}m`);
+
+  return parts.length > 0 ? parts.join(" ") : "0m";
+}
+
+export function formatDateDDMMYY(dateString: string | Date): string {
+  const date = new Date(dateString);
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yy = String(date.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+}

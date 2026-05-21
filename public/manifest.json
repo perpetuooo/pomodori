@@ -6,8 +6,8 @@
   "homepage_url": "https://github.com/perpetuooo/pomodori",
 
   "icons": {
-    "48": "icons/tomato-48.png",
-    "96": "icons/tomato-96.png"
+    "48": "icons/tomato.svg",
+    "96": "icons/tomato.svg"
   },
 
   "permissions": ["activeTab", "scripting", "storage", "alarms", "notifications"],
