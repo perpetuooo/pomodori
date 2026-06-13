@@ -12,7 +12,8 @@ export function createInitialTimerState(minutes = DEFAULT_WORK_MINUTES): TimerSt
     isRunning: false,
     endEpochMs: null,
     completedSessions: 0,
-    hasAlerted: false
+    hasAlerted: false,
+    phaseProgress: {},
   };
 }
 
@@ -21,12 +22,11 @@ export function getRemainingFromEnd(endEpochMs: number): number {
 }
 
 export function formatClock(totalSeconds: number): string {
-  const isNegative = totalSeconds < 0;
   const absSeconds = Math.abs(totalSeconds);
   const minutes = Math.floor(absSeconds / 60).toString().padStart(2, "0");
   const seconds = (absSeconds % 60).toString().padStart(2, "0");
   
-  return isNegative ? `+${minutes}:${seconds}` : `${minutes}:${seconds}`;
+  return `${minutes}:${seconds}`;
 }
 
 export function formatStatsDuration(totalSeconds: number): string {

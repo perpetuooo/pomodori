@@ -74,7 +74,7 @@ export function PomodoroHeatmap({ stats }: PomodoroHeatmapProps) {
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-        <h3 style={{ margin: 0, fontSize: "16px", color: "var(--text-primary)" }}>Activity Heatmap</h3>
+        <h3 style={{ margin: 0, fontSize: "16px", color: "var(--text-primary)" }}>Heatmap</h3>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <button onClick={handlePrevMonth} style={{ padding: "4px", background: "rgba(255,255,255,0.05)", borderRadius: "4px" }}>
             <ChevronLeft size={16} />

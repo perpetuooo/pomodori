@@ -5,6 +5,8 @@ import { TimerState, Phase, Settings } from "../types";
 import { logPauseEvent, logSessionCompletion, loadSettings, saveSettings, DEFAULT_SETTINGS } from "../lib/db";
 import { triggerPhaseAlert } from "../lib/alerts";
 
+const ALL_PHASES: Phase[] = ["work", "shortBreak", "longBreak"];
+
 export function useTimer() {
   const [state, setState] = useState<TimerState>(createInitialTimerState());
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -12,6 +14,7 @@ export function useTimer() {
   const [hydrated, setHydrated] = useState(false);
   const lastSaveRef = useRef<number>(0);
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
+  const phaseAutoAdvanceRef = useRef(false);
 
   useEffect(() => {
     const isExtension = typeof chrome !== "undefined" && !!chrome.storage && !!chrome.storage.local;
@@ -20,7 +23,7 @@ export function useTimer() {
       Promise.all([loadTimerState(), loadSettings()]).then(([savedTimer, loadedSettings]) => {
         setSettings(loadedSettings);
         settingsRef.current = loadedSettings;
-        
+
         if (savedTimer) {
           const rehydrated: TimerState =
             savedTimer.isRunning && savedTimer.endEpochMs
@@ -132,8 +135,13 @@ export function useTimer() {
         }
 
         if (remaining <= 0 && !settingsRef.current.overtimeEnabled) {
+          phaseAutoAdvanceRef.current = true;
           logSessionCompletion(current.phase, current.durationSeconds);
-          return autoAdvanceCycle(current, settingsRef.current);
+          const { [current.phase]: _, ...rest } = current.phaseProgress;
+          return {
+            ...autoAdvanceCycle(current, settingsRef.current),
+            phaseProgress: rest,
+          };
         }
 
         return { ...current, remainingSeconds: remaining, hasAlerted: willAlert };
@@ -143,14 +151,48 @@ export function useTimer() {
     return () => window.clearInterval(id);
   }, [state.isRunning, state.endEpochMs, updateState]);
 
+  useEffect(() => {
+    phaseAutoAdvanceRef.current = false;
+  });
+
+  useEffect(() => {
+    if (state.isRunning) return;
+
+    const phaseToDuration: Record<Phase, number> = {
+      work: settings.workDuration * 60,
+      shortBreak: settings.shortBreakDuration * 60,
+      longBreak: settings.longBreakDuration * 60,
+    };
+
+    const newDuration = phaseToDuration[state.phase];
+    if (newDuration && newDuration !== state.durationSeconds) {
+      updateState((current) => ({
+        ...current,
+        durationSeconds: newDuration,
+        remainingSeconds: Math.min(current.remainingSeconds, newDuration),
+      }));
+    }
+  }, [settings.workDuration, settings.shortBreakDuration, settings.longBreakDuration, state.isRunning, state.phase, state.durationSeconds, updateState]);
+
   const handleStartPause = useCallback(() => {
     updateState((current) => {
       if (current.isRunning) {
         logPauseEvent();
-        return { ...current, isRunning: false, endEpochMs: null };
+        const phaseProgress = current.remainingSeconds < current.durationSeconds
+          ? { ...current.phaseProgress, [current.phase]: current.remainingSeconds }
+          : current.phaseProgress;
+        return { ...current, isRunning: false, endEpochMs: null, phaseProgress };
       }
+
+      const cleared: Partial<Record<Phase, number>> = {};
+      for (const p of ALL_PHASES) {
+        if (p === current.phase && current.phaseProgress[p] !== undefined) {
+          cleared[p] = current.phaseProgress[p];
+        }
+      }
+
       const endEpochMs = Date.now() + current.remainingSeconds * 1000;
-      return { ...current, isRunning: true, endEpochMs };
+      return { ...current, isRunning: true, endEpochMs, phaseProgress: cleared };
     });
   }, [updateState]);
 
@@ -182,27 +224,45 @@ export function useTimer() {
   const handleSetPhase = useCallback((phase: Phase, minutes: number) => {
     const nextDuration = minutes * 60;
     setWorkMinutesInput(minutes.toString());
-    updateState((current) => ({
-      ...current,
-      phase,
-      durationSeconds: nextDuration,
-      remainingSeconds: nextDuration,
-      isRunning: false,
-      endEpochMs: null,
-      hasAlerted: false,
-    }));
+    updateState((current) => {
+      const phaseProgress = current.remainingSeconds < current.durationSeconds
+        ? { ...current.phaseProgress, [current.phase]: current.remainingSeconds }
+        : current.phaseProgress;
+
+      const saved = phaseProgress[phase];
+      const remainingSeconds = saved !== undefined
+        ? Math.min(saved, nextDuration)
+        : nextDuration;
+
+      return {
+        ...current,
+        phase,
+        durationSeconds: nextDuration,
+        remainingSeconds,
+        isRunning: false,
+        endEpochMs: null,
+        hasAlerted: false,
+        phaseProgress,
+      };
+    });
   }, [updateState]);
 
   const handleAdvance = useCallback(() => {
     updateState((current) => {
       const isSkipped = current.remainingSeconds > 0;
       const overtime = current.remainingSeconds < 0 ? Math.abs(current.remainingSeconds) : 0;
-      
+
       if (!isSkipped) {
         logSessionCompletion(current.phase, current.durationSeconds, overtime);
       }
-      
-      return autoAdvanceCycle(current, settingsRef.current);
+
+      const phaseProgress = { ...current.phaseProgress };
+      delete phaseProgress[current.phase];
+
+      return {
+        ...autoAdvanceCycle(current, settingsRef.current),
+        phaseProgress,
+      };
     });
   }, [updateState]);
 
@@ -244,5 +304,6 @@ export function useTimer() {
     handleAdvance,
     toggleMute,
     toggleOvertime,
+    autoAdvanced: phaseAutoAdvanceRef.current,
   };
 }

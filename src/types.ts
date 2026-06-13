@@ -8,6 +8,7 @@ export interface TimerState {
   endEpochMs: number | null;
   completedSessions: number;
   hasAlerted: boolean;
+  phaseProgress: Partial<Record<Phase, number>>;
 }
 
 export interface AlarmSettings {

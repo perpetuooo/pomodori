@@ -79,7 +79,9 @@ function checkBlockState(settings: Settings | undefined, timerState: TimerState 
     return;
   }
 
-  const isActive = timerState.isRunning && timerState.phase === "work" && timerState.endEpochMs && Date.now() < timerState.endEpochMs;
+  const isActive = timerState.isRunning && timerState.phase === "work" && timerState.endEpochMs && (
+    Date.now() < timerState.endEpochMs || settings.overtimeEnabled
+  );
 
   if (isActive) {
     applyBlur();
@@ -88,7 +90,7 @@ function checkBlockState(settings: Settings | undefined, timerState: TimerState 
     // Poll to remove block if timer naturally expires without popup opening
     if (!checkInterval) {
       checkInterval = window.setInterval(() => {
-        if (timerState.endEpochMs && Date.now() >= timerState.endEpochMs) {
+        if (timerState.endEpochMs && Date.now() >= timerState.endEpochMs && !settings.overtimeEnabled) {
           removeBlur();
           removeModal();
           window.clearInterval(checkInterval!);

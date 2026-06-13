@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { formatClock } from "./lib/timer";
 import { useTimer } from "./hooks/useTimer";
 import { StatsView } from "./components/StatsView";
@@ -20,13 +20,16 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./comp
 const DRAWER_EXPANDED_RADIUS = 155;
 const DRAWER_COLLAPSED_RADIUS = 135;
 
-function ProgressRing({ percentage, color, isOvertime, expanded }: { percentage: number, color: string, isOvertime: boolean, expanded?: boolean }) {
+function ProgressRing({ percentage, color, isOvertime, expanded, animation }: {
+  percentage: number, color: string, isOvertime: boolean, expanded?: boolean, animation?: 'none' | 'loading' | 'overtime-fade'
+}) {
   const targetRadius = expanded ? DRAWER_EXPANDED_RADIUS : DRAWER_COLLAPSED_RADIUS;
   const stroke = 8;
   const normalizedRadius = targetRadius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const displayPercentage = isOvertime ? 100 : Math.max(0, Math.min(100, percentage));
   const strokeDashoffset = circumference - (displayPercentage / 100) * circumference;
+  const animType = animation || 'none';
 
   return (
     <motion.svg
@@ -54,17 +57,50 @@ function ProgressRing({ percentage, color, isOvertime, expanded }: { percentage:
           cx: targetRadius,
           cy: targetRadius,
           strokeDashoffset,
+          strokeDasharray: `${circumference} ${circumference}`,
           stroke: isOvertime ? "var(--overtime-color)" : color,
+          opacity: animType === 'overtime-fade' ? 1 : (isOvertime ? 0 : 1),
         }}
-        initial={{
-          r: DRAWER_COLLAPSED_RADIUS - stroke * 2,
-          cx: DRAWER_COLLAPSED_RADIUS,
-          cy: DRAWER_COLLAPSED_RADIUS,
-          strokeDashoffset: circumference,
-          stroke: color,
+        initial={
+          animType === 'loading'
+            ? {
+                strokeDashoffset: circumference,
+                r: normalizedRadius,
+                cx: targetRadius,
+                cy: targetRadius,
+                strokeDasharray: `${circumference} ${circumference}`,
+                stroke: color,
+                opacity: 1,
+              }
+            : animType === 'overtime-fade'
+            ? {
+                stroke: "var(--overtime-color)",
+                opacity: 0,
+                r: normalizedRadius,
+                cx: targetRadius,
+                cy: targetRadius,
+                strokeDasharray: `${circumference} ${circumference}`,
+                strokeDashoffset: 0,
+              }
+            : false
+        }
+        transition={{
+          r: { duration: 0.3, ease: "easeInOut" },
+          cx: { duration: 0.3, ease: "easeInOut" },
+          cy: { duration: 0.3, ease: "easeInOut" },
+          strokeDasharray: { duration: 0.3, ease: "easeInOut" },
+          strokeDashoffset: animType === 'overtime-fade'
+            ? { duration: 0 }
+            : animType === 'loading'
+            ? { duration: 0.8, ease: "easeInOut" }
+            : { duration: 0.3, ease: "easeInOut" },
+          stroke: { duration: animType === 'overtime-fade' ? 0.5 : 0.3, ease: "easeInOut" },
+          opacity: animType === 'overtime-fade'
+            ? { duration: 0.5, ease: "easeInOut" }
+            : isOvertime
+            ? { duration: 2, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }
+            : { duration: 0.3, ease: "easeInOut" },
         }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        style={{ strokeDasharray: `${circumference} ${circumference}` }}
       />
     </motion.svg>
   );
@@ -81,10 +117,20 @@ function App() {
     handleAdvance,
     toggleMute,
     toggleOvertime,
+    autoAdvanced,
   } = useTimer();
 
   const [activeTab, setActiveTab] = useState<'timer' | 'stats'>('timer');
   const [isDrawerVisible, setIsDrawerVisible] = useState(true);
+  const [ringVersion, setRingVersion] = useState(0);
+  const [ringAnimation, setRingAnimation] = useState<'none' | 'loading' | 'overtime-fade'>('none');
+  const prevPhaseRef = useRef(state.phase);
+  const prevOvertimeRef = useRef(false);
+  const isHydratedRef = useRef(false);
+
+  const isOvertime = state.remainingSeconds < 0;
+  const isConclude = state.remainingSeconds <= 0;
+  const percentage = (state.remainingSeconds / state.durationSeconds) * 100;
 
   useEffect(() => {
     if (!state.isRunning) {
@@ -97,11 +143,38 @@ function App() {
     }
   }, [state.isRunning]);
 
-  if (!hydrated) return null;
+  useEffect(() => {
+    if (prevPhaseRef.current !== state.phase) {
+      setRingAnimation(autoAdvanced ? 'loading' : 'none');
+      setRingVersion(v => v + 1);
+      prevPhaseRef.current = state.phase;
+    }
+  }, [state.phase, autoAdvanced]);
 
-  const isOvertime = state.remainingSeconds < 0;
-  const isConclude = state.remainingSeconds <= 0;
-  const percentage = (state.remainingSeconds / state.durationSeconds) * 100;
+  useEffect(() => {
+    if (!isHydratedRef.current) {
+      isHydratedRef.current = hydrated;
+      if (!hydrated) return;
+      prevOvertimeRef.current = isOvertime;
+      return;
+    }
+    if (isOvertime && !prevOvertimeRef.current) {
+      setRingAnimation('overtime-fade');
+      setRingVersion(v => v + 1);
+    }
+    prevOvertimeRef.current = isOvertime;
+  }, [isOvertime, hydrated]);
+
+  useEffect(() => {
+    if (ringAnimation === 'none') return;
+
+    const delay = ringAnimation === 'loading' ? 800 : 500;
+    const timer = setTimeout(() => {
+      setRingAnimation('none');
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [ringAnimation]);
 
   const phaseColors: Record<string, string> = {
     work: "var(--focus-color)",
@@ -111,6 +184,8 @@ function App() {
 
   const currentColor = phaseColors[state.phase] || "var(--focus-color)";
   const displayColor = isOvertime ? "var(--overtime-color)" : currentColor;
+
+  if (!hydrated) return null;
 
   return (
     <TooltipProvider delayDuration={400}>
@@ -241,7 +316,7 @@ function App() {
                 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
               >
-                <ProgressRing percentage={percentage} color={currentColor} isOvertime={isOvertime} expanded={!isDrawerVisible} />
+                <ProgressRing key={ringVersion} percentage={percentage} color={currentColor} isOvertime={isOvertime} expanded={!isDrawerVisible} animation={ringAnimation} />
                 <motion.p
                   className="clock-text"
                   animate={{
@@ -255,15 +330,30 @@ function App() {
               </motion.div>
 
               <div className="controls">
-                <button type="button" onClick={handleReset} title="Reset Timer">
-                  <RotateCcw size={24} />
-                </button>
-                <button type="button" onClick={handleStartPause} className="main-action" title={state.isRunning ? "Pause" : "Start"}>
-                  {state.isRunning ? <Pause size={28} /> : <Play size={28} fill="currentColor" />}
-                </button>
-                <button type="button" onClick={handleAdvance} title={isConclude ? "Conclude" : "Skip"}>
-                  {isConclude ? <CheckCircle size={24} /> : <SkipForward size={24} />}
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" onClick={handleReset}>
+                      <RotateCcw size={24} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Reset Timer</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" onClick={handleStartPause} className="main-action">
+                      {state.isRunning ? <Pause size={28} /> : <Play size={28} fill="currentColor" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">{state.isRunning ? "Pause" : "Start"}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" onClick={handleAdvance}>
+                      {isConclude ? <CheckCircle size={24} /> : <SkipForward size={24} />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">{isConclude ? "Conclude" : "Skip"}</TooltipContent>
+                </Tooltip>
               </div>
             </div>
           </>
