@@ -212,13 +212,15 @@ button:disabled {
 
 /* Sessions Counter */
 .sessions-counter {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 24px;
+  position: absolute;
+  top: calc(50% + 40px);
+  left: 0;
+  right: 0;
+  text-align: center;
   font-size: 14px;
   color: var(--text-secondary);
+  opacity: 0.45;
+  z-index: 1;
 }
 
 .tomato-icon {

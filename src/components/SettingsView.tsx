@@ -255,7 +255,7 @@ export function SettingsView() {
   const SOCIAL_MEDIA = socialMediaPreset.split("\n").map(l => l.trim()).filter(Boolean);
   const STREAMING = streamingPreset.split("\n").map(l => l.trim()).filter(Boolean);
 
-  const getComponentClasses = () => "bg-black/20 border-white/10 backdrop-blur-sm rounded-md";
+  const getComponentClasses = () => "bg-black/20 rounded-md";
 
   if (loading) return <div className="p-8 text-center text-muted-foreground">Loading settings...</div>;
 
@@ -287,7 +287,7 @@ export function SettingsView() {
 
           {/* Section: Timer */}
           <section id="timer" className="scroll-mt-12">
-            <Card className="bg-white/5 border-white/10 overflow-hidden relative">
+            <Card className="bg-white/5 overflow-hidden relative">
               <CardHeader>
                 <CardTitle className="text-2xl flex items-center gap-2">Durations</CardTitle>
                 <CardDescription>Adjust the time for your focus sessions and breaks.</CardDescription>
@@ -317,7 +317,7 @@ export function SettingsView() {
 
           {/* Section: Alarms */}
           <section id="alarms" className="scroll-mt-12">
-            <Card className="bg-white/5 border-white/10 overflow-hidden relative">
+            <Card className="bg-white/5 overflow-hidden relative">
               <CardHeader>
                 <CardTitle className="text-2xl flex items-center gap-2">Alerts & Sounds</CardTitle>
                 <CardDescription>Manage how Pomodori notifies you.</CardDescription>
@@ -347,7 +347,7 @@ export function SettingsView() {
                       exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="flex items-center justify-between pl-6 py-2 border-l-2 border-white/10 ml-2 mt-2">
+                      <div className="flex items-center justify-between pl-6 py-2 ml-2 mt-2">
                         <div className="space-y-0.5">
                           <Label>Ring at 00:00 on Overtime</Label>
                           <p className="text-sm text-muted-foreground">Play a sound even if Overtime mode is active.</p>
@@ -358,7 +358,7 @@ export function SettingsView() {
                   )}
                 </AnimatePresence>
 
-                <div className="space-y-4 pt-4 border-t border-white/10">
+                <div className="space-y-4 pt-4">
                   <div className="flex items-center justify-between">
                     <Label className="flex items-center gap-2"><Volume2 className="w-4 h-4" /> Alarm Volume</Label>
                     <span className="text-sm text-muted-foreground">{Math.round(settings.alarms.volume * 100)}%</span>
@@ -371,7 +371,7 @@ export function SettingsView() {
                   />
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-white/10">
+                <div className="space-y-4 pt-4">
                   <Label>Custom Alarm Sounds</Label>
                   <p className="text-sm text-muted-foreground">Upload your own sounds (max 10s, 2MB). You can store up to 3 alarms.</p>
 
@@ -410,7 +410,7 @@ export function SettingsView() {
 
           {/* Section: Advanced */}
           <section id="advanced" className="scroll-mt-12">
-            <Card className="bg-white/5 border-white/10 overflow-hidden relative">
+            <Card className="bg-white/5 overflow-hidden relative">
               <CardHeader>
                 <CardTitle className="text-2xl flex items-center gap-2">Advanced</CardTitle>
                 <CardDescription>Extra features.</CardDescription>
@@ -432,7 +432,7 @@ export function SettingsView() {
                   <Switch checked={settings.autoStartNextSession} onCheckedChange={c => setSettings({ ...settings, autoStartNextSession: c })} />
                 </div>
 
-                <div className="space-y-4 pt-4 border-t border-white/10">
+                <div className="space-y-4 pt-4">
                   <Label>Data Management</Label>
                   <p className="text-sm text-muted-foreground">Import, export, or clear your statistics and audio data.</p>
                   <div className="flex gap-4">
@@ -440,7 +440,7 @@ export function SettingsView() {
                       <Download className="w-4 h-4" /> Export Configuration
                     </Button>
                     <Label className="cursor-pointer">
-                      <div className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground gap-2">
+                      <div className="flex h-10 items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground gap-2">
                         <Upload className="w-4 h-4" /> Import Configuration
                       </div>
                       <input type="file" accept=".json" onChange={importData} className="hidden" />
@@ -450,7 +450,7 @@ export function SettingsView() {
                     <Button type="button" variant="destructive" onClick={clearData} className="gap-2">
                       <Trash2 className="w-4 h-4" /> Clear All Statistics
                     </Button>
-                    <Button type="button" variant="outline" onClick={generateFakeData} className="gap-2 border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10">
+                    <Button type="button" variant="outline" onClick={generateFakeData} className="gap-2 text-yellow-500 hover:bg-yellow-500/10">
                       <Bug className="w-4 h-4" /> Generate Debug Data
                     </Button>
                   </div>
@@ -461,7 +461,7 @@ export function SettingsView() {
 
           {/* Section: Blocklist */}
           <section id="blocklist" className="scroll-mt-12">
-            <Card className="bg-white/5 border-white/10 overflow-hidden relative">
+            <Card className="bg-white/5 overflow-hidden relative">
               <CardHeader>
                 <CardTitle className="text-2xl flex items-center gap-2">Distraction Blocklist</CardTitle>
                 <CardDescription>Enter domains to block during focus sessions (one per line). Example: facebook.com</CardDescription>

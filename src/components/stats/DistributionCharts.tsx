@@ -15,7 +15,6 @@ const chartCardStyle: React.CSSProperties = {
   background: "rgba(255, 255, 255, 0.05)",
   padding: "20px",
   borderRadius: "12px",
-  border: "1px solid rgba(255,255,255,0.1)",
 };
 
 export function TimeDistributionChart({ stats }: DistributionChartsProps) {
@@ -51,7 +50,6 @@ export function TimeDistributionChart({ stats }: DistributionChartsProps) {
           style={{
             background: "var(--bg-color)",
             padding: "8px 12px",
-            border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: "8px",
           }}
         >
@@ -164,7 +162,6 @@ export function DistributionCharts({ stats }: DistributionChartsProps) {
           style={{
             background: "var(--bg-color)",
             padding: "8px 12px",
-            border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: "8px",
           }}
         >
@@ -300,7 +297,6 @@ export function DistributionCharts({ stats }: DistributionChartsProps) {
                 cursor={{ fill: "rgba(255,255,255,0.05)" }}
                 contentStyle={{
                   background: "var(--bg-color)",
-                  border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "8px",
                   color: "var(--focus-color)",
                   fontWeight: 600,

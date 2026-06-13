@@ -131,16 +131,13 @@ function App() {
   const isOvertime = state.remainingSeconds < 0;
   const isConclude = state.remainingSeconds <= 0;
   const percentage = (state.remainingSeconds / state.durationSeconds) * 100;
+  const cyclePosition = state.completedSessions % settings.sessionsUntilLongBreak;
+  const sessionDisplay = state.phase === 'longBreak'
+    ? `${settings.sessionsUntilLongBreak}/${settings.sessionsUntilLongBreak}`
+    : `${cyclePosition}/${settings.sessionsUntilLongBreak}`;
 
   useEffect(() => {
-    if (!state.isRunning) {
-      const timer = setTimeout(() => {
-        setIsDrawerVisible(true);
-      }, 300);
-      return () => clearTimeout(timer);
-    } else {
-      setIsDrawerVisible(false);
-    }
+    setIsDrawerVisible(!state.isRunning);
   }, [state.isRunning]);
 
   useEffect(() => {
@@ -197,12 +194,10 @@ function App() {
                 className="top-drawer"
                 animate={{
                   opacity: isDrawerVisible ? 1 : 0,
-                  y: isDrawerVisible ? 0 : -8,
-                  height: isDrawerVisible ? 40 : 0,
-                  marginBottom: isDrawerVisible ? 0 : -12,
+                  y: isDrawerVisible ? 0 : -80,
                   pointerEvents: isDrawerVisible ? "auto" : "none",
                 }}
-                initial={{ opacity: 0, y: -8, height: 40 }}
+                initial={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25, ease: "easeOut" }}
               >
                 <div className="mode-selectors">
@@ -312,7 +307,8 @@ function App() {
               <motion.div
                 className="clock-container"
                 animate={{
-                  margin: isDrawerVisible ? "32px 0" : "8px 0",
+                  margin: isDrawerVisible ? "32px 0" : "0px 0",
+                  y: isDrawerVisible ? 0 : -28,
                 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
               >
@@ -326,6 +322,17 @@ function App() {
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                 >
                   {formatClock(state.remainingSeconds)}
+                </motion.p>
+                <motion.p
+                  className="sessions-counter"
+                  animate={{
+                    opacity: isDrawerVisible ? 1 : 0,
+                    y: isDrawerVisible ? 0 : -4,
+                    pointerEvents: isDrawerVisible ? "auto" : "none",
+                  }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                >
+                  {sessionDisplay}
                 </motion.p>
               </motion.div>
 

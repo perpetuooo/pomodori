@@ -14,7 +14,6 @@ const cardStyle: React.CSSProperties = {
   background: "rgba(255, 255, 255, 0.05)",
   padding: "20px",
   borderRadius: "12px",
-  border: "1px solid rgba(255,255,255,0.1)",
 };
 
 export function DayDetails({ stats }: DayDetailsProps) {
@@ -90,7 +89,7 @@ export function DayDetails({ stats }: DayDetailsProps) {
                 display: "flex",
                 flexDirection: "column",
                 gap: "4px",
-                borderTop: `2px solid ${i === 0 ? "var(--focus-color)" : "rgba(255,255,255,0.08)"}`,
+
               }}
             >
               <div style={{ fontSize: "10px", color: "var(--text-secondary)", fontWeight: 600, letterSpacing: "0.05em" }}>
@@ -138,7 +137,6 @@ export function DayDetails({ stats }: DayDetailsProps) {
               background: "rgba(0,0,0,0.3)",
               borderRadius: "8px",
               padding: "5px 10px",
-              border: "1px solid rgba(255,255,255,0.08)",
             }}
           >
             <Search size={13} color="var(--text-secondary)" />
@@ -203,7 +201,7 @@ export function DayDetails({ stats }: DayDetailsProps) {
         <div className="custom-scrollbar" style={{ maxHeight: "280px", overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
             <thead style={{ position: "sticky", top: 0, background: "rgba(43,34,31,0.97)", zIndex: 1 }}>
-              <tr style={{ color: "var(--text-secondary)", textAlign: "left", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+              <tr style={{ color: "var(--text-secondary)", textAlign: "left" }}>
                 <th style={{ padding: "8px 10px", fontWeight: "normal" }}>Date</th>
                 <th style={{ padding: "8px 10px", fontWeight: "normal" }}>Focus Time</th>
                 <th style={{ padding: "8px 10px", fontWeight: "normal" }}>Sessions</th>
@@ -215,7 +213,7 @@ export function DayDetails({ stats }: DayDetailsProps) {
               {filtered.map((day) => (
                 <tr
                   key={day.date}
-                  style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", transition: "background 0.1s" }}
+                  style={{ transition: "background 0.1s" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >

@@ -69,7 +69,6 @@ export function PomodoroHeatmap({ stats }: PomodoroHeatmapProps) {
         background: "rgba(255, 255, 255, 0.05)",
         borderRadius: "12px",
         padding: "20px",
-        border: "1px solid rgba(255, 255, 255, 0.1)",
         position: "relative"
       }}
     >
@@ -162,7 +161,6 @@ export function PomodoroHeatmap({ stats }: PomodoroHeatmapProps) {
           display: "none",
           position: "absolute",
           background: "var(--bg-color)",
-          border: "1px solid rgba(255,255,255,0.1)",
           padding: "8px 12px",
           borderRadius: "8px",
           fontSize: "12px",
