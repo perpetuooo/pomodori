@@ -320,7 +320,7 @@ export function SettingsView() {
   if (loading) return <div className="p-8 text-center text-muted-foreground">Loading settings...</div>;
 
   return (
-    <main className="min-h-screen relative font-sans text-foreground pb-24">
+    <main className="min-h-screen relative font-['Plus_Jakarta_Sans'] text-foreground pb-24">
       {/* Table of Contents */}
       <aside className="fixed top-24 right-12 hidden lg:flex flex-col gap-3 w-48 z-50">
         <a href="#timer" className={`text-sm transition-all flex items-center gap-3 ${activeSection === 'timer' ? 'text-white font-bold translate-x-[-5px]' : 'text-muted-foreground hover:text-white'}`}>
