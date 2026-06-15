@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Clock, Bell, Settings as SettingsIcon, Shield, Trash2, Volume2, Download, Upload, Bug } from "lucide-react";
+import { Check, Clock, Bell, Settings as SettingsIcon, Shield, Trash2, Volume2, VolumeX, Download, Upload, Bug, Pencil, Play, Pause } from "lucide-react";
+import { previewAlarm, stopPreview } from "../lib/alerts";
 
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -22,12 +24,23 @@ export function SettingsView() {
   const [saved, setSaved] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
-  const [customAlarms, setCustomAlarms] = useState<Array<{ id: string, name: string }>>([]);
-
+  const [customAlarms, setCustomAlarms] = useState<Array<{ id: string, name: string, filename: string }>>([]);
   const [activeSection, setActiveSection] = useState("timer");
+  const [previewingAlarmId, setPreviewingAlarmId] = useState<string | null>(null);
+
+  const [alarmModal, setAlarmModal] = useState<{
+    open: boolean;
+    mode: 'create' | 'edit';
+    alarmId?: string;
+    initialName: string;
+    pendingFile?: File;
+  }>({ open: false, mode: 'create', initialName: '' });
+  const [alarmModalInput, setAlarmModalInput] = useState("");
+
+  const [exportModal, setExportModal] = useState(false);
+  const [exportOptions, setExportOptions] = useState({ settings: true, dailyStats: true, audioFiles: true });
 
   useEffect(() => {
-    // Apply soft radius
     document.documentElement.style.setProperty("--radius", "0.375rem");
   }, []);
 
@@ -73,7 +86,7 @@ export function SettingsView() {
 
   const loadAlarms = () => {
     db.audioFiles.toArray().then(files => {
-      setCustomAlarms(files.map(f => ({ id: f.id, name: f.name })));
+      setCustomAlarms(files.map(f => ({ id: f.id, name: f.name, filename: f.filename || f.name })));
     });
   };
 
@@ -91,7 +104,7 @@ export function SettingsView() {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError("");
     setUploadSuccess("");
     const file = e.target.files?.[0];
@@ -110,25 +123,15 @@ export function SettingsView() {
     const audioUrl = URL.createObjectURL(file);
     const audio = new Audio(audioUrl);
 
-    audio.onloadedmetadata = async () => {
+    audio.onloadedmetadata = () => {
       URL.revokeObjectURL(audioUrl);
       if (audio.duration > 10) {
         setUploadError("Audio duration must be 10 seconds or less.");
         return;
       }
 
-      const alarmName = prompt("Enter a name for this alarm:", file.name) || file.name;
-      const id = Date.now().toString();
-
-      try {
-        await db.audioFiles.put({ id, name: alarmName, blob: file });
-        setUploadSuccess("Custom alarm saved successfully!");
-        loadAlarms();
-        setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: id } });
-        setTimeout(() => setUploadSuccess(""), 3000);
-      } catch (err) {
-        setUploadError("Failed to save audio file.");
-      }
+      setAlarmModalInput(file.name);
+      setAlarmModal({ open: true, mode: 'create', initialName: file.name, pendingFile: file });
     };
 
     audio.onerror = () => {
@@ -137,12 +140,48 @@ export function SettingsView() {
     };
   };
 
+  const handleAlarmModalConfirm = async () => {
+    const name = alarmModalInput.trim();
+    if (!name) return;
+
+    if (alarmModal.mode === 'create' && alarmModal.pendingFile) {
+      const id = Date.now().toString();
+      try {
+        await db.audioFiles.put({ id, name, filename: alarmModal.pendingFile.name, blob: alarmModal.pendingFile });
+        setUploadSuccess("Custom alarm saved successfully!");
+        loadAlarms();
+        setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: id } });
+        setTimeout(() => setUploadSuccess(""), 3000);
+      } catch {
+        setUploadError("Failed to save audio file.");
+      }
+    } else if (alarmModal.mode === 'edit' && alarmModal.alarmId) {
+      await db.audioFiles.update(alarmModal.alarmId, { name });
+      loadAlarms();
+    }
+
+    setAlarmModal(prev => ({ ...prev, open: false, pendingFile: undefined }));
+  };
+
   const handleDeleteAlarm = async (id: string) => {
     await db.audioFiles.delete(id);
     if (settings.alarms?.activeCustomAlarmId === id) {
       setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: null } });
     }
     loadAlarms();
+  };
+
+  const handlePlayAlarm = (alarmId?: string) => {
+    const id = alarmId ?? null;
+    if (previewingAlarmId === id) {
+      stopPreview();
+      setPreviewingAlarmId(null);
+    } else {
+      const onEnd = () => setPreviewingAlarmId(null);
+      stopPreview();
+      previewAlarm(settings.alarms.volume, id, onEnd);
+      setPreviewingAlarmId(id);
+    }
   };
 
   const addPreset = (preset: string[]) => {
@@ -155,23 +194,34 @@ export function SettingsView() {
     setBlocklistText(combined.join("\n"));
   };
 
-  const exportData = async () => {
-    const statsData = await db.dailyStats.toArray();
-    const audioData = await db.audioFiles.toArray();
+  const handleExportConfirm = async () => {
+    const exportObj: Record<string, unknown> = {};
 
-    const audioFilesB64 = await Promise.all(audioData.map(async file => {
-      const b64 = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(file.blob);
-      });
-      return { id: file.id, name: file.name, blob: b64 };
-    }));
+    if (exportOptions.settings) {
+      exportObj.settings = {
+        ...settings,
+        blocklist: blocklistText
+          .split("\n")
+          .map(line => line.trim())
+          .filter(line => line.length > 0)
+      };
+    }
 
-    const exportObj = {
-      dailyStats: statsData,
-      audioFiles: audioFilesB64
-    };
+    if (exportOptions.dailyStats) {
+      exportObj.dailyStats = await db.dailyStats.toArray();
+    }
+
+    if (exportOptions.audioFiles) {
+      const audioData = await db.audioFiles.toArray();
+      exportObj.audioFiles = await Promise.all(audioData.map(async file => {
+        const b64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(file.blob);
+        });
+        return { id: file.id, name: file.name, filename: file.filename, blob: b64 };
+      }));
+    }
 
     const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -180,6 +230,7 @@ export function SettingsView() {
     a.download = "pomodori_export.json";
     a.click();
     URL.revokeObjectURL(url);
+    setExportModal(false);
   };
 
   const importData = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,10 +241,15 @@ export function SettingsView() {
     reader.onload = async (event) => {
       try {
         const json = JSON.parse(event.target?.result as string);
+        const settingsToImport = json.settings as Settings | undefined;
         const statsToImport = json.dailyStats || [];
-        const audioToImport: Array<{ id: string, name: string, blob: string }> = json.audioFiles || [];
+        const audioToImport: Array<{ id: string, name: string, filename?: string, blob: string }> = json.audioFiles || [];
 
-        await db.transaction('rw', db.dailyStats, db.audioFiles, async () => {
+        await db.transaction('rw', db.settings, db.dailyStats, db.audioFiles, async () => {
+          if (settingsToImport) {
+            await db.settings.put(settingsToImport);
+          }
+
           for (const item of statsToImport) {
             await db.dailyStats.put(item);
           }
@@ -201,11 +257,16 @@ export function SettingsView() {
           for (const item of audioToImport) {
             const res = await fetch(item.blob);
             const blob = await res.blob();
-            await db.audioFiles.put({ id: item.id, name: item.name, blob });
+            await db.audioFiles.put({ id: item.id, name: item.name, filename: item.filename || item.name, blob });
           }
         });
+
+        if (settingsToImport) {
+          setSettings(settingsToImport);
+          setBlocklistText(settingsToImport.blocklist.join("\n"));
+        }
         alert("Data imported successfully!");
-      } catch (err) {
+      } catch {
         alert("Error importing data. Invalid file.");
       }
     };
@@ -229,10 +290,9 @@ export function SettingsView() {
         d.setDate(d.getDate() - i);
         const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-        // Randomly skip some days to create breaks in streaks
         if (Math.random() > 0.8) continue;
 
-        const pomodoros = Math.floor(Math.random() * 8) + 1; // 1 to 8 pomodoros
+        const pomodoros = Math.floor(Math.random() * 8) + 1;
         const focusSeconds = pomodoros * 25 * 60;
 
         await db.dailyStats.put({
@@ -358,51 +418,90 @@ export function SettingsView() {
                   )}
                 </AnimatePresence>
 
-                <div className="space-y-4 pt-4">
+                <div className={`space-y-4 pt-4 ${!settings.alarms.soundEnabled ? 'opacity-60' : ''}`}>
                   <div className="flex items-center justify-between">
-                    <Label className="flex items-center gap-2"><Volume2 className="w-4 h-4" /> Alarm Volume</Label>
-                    <span className="text-sm text-muted-foreground">{Math.round(settings.alarms.volume * 100)}%</span>
+                    <button
+                      type="button"
+                      onClick={() => setSettings({ ...settings, alarms: { ...settings.alarms, soundEnabled: !settings.alarms.soundEnabled } })}
+                      className={`flex items-center gap-2 hover:text-foreground transition-colors ${!settings.alarms.soundEnabled ? 'text-muted-foreground' : ''}`}
+                    >
+                      {settings.alarms.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                      <span>Alarm Volume</span>
+                    </button>
+                    <span className={`text-sm ${!settings.alarms.soundEnabled ? 'text-muted-foreground' : 'text-muted-foreground'}`}>{Math.round(settings.alarms.volume * 100)}%</span>
                   </div>
                   <Slider
                     value={[settings.alarms.volume]}
                     max={1}
                     step={0.05}
                     onValueChange={([v]) => setSettings({ ...settings, alarms: { ...settings.alarms, volume: v } })}
+                    onValueCommit={([v]) => {
+                      if (!settings.alarms.soundEnabled) return;
+                      const onEnd = () => setPreviewingAlarmId(null);
+                      stopPreview();
+                      previewAlarm(v, settings.alarms.activeCustomAlarmId, onEnd);
+                      setPreviewingAlarmId(settings.alarms.activeCustomAlarmId);
+                    }}
                   />
                 </div>
 
                 <div className="space-y-4 pt-4">
-                  <Label>Custom Alarm Sounds</Label>
-                  <p className="text-sm text-muted-foreground">Upload your own sounds (max 10s, 2MB). You can store up to 3 alarms.</p>
-
-                  <div className="space-y-2">
-                    <div className={`flex items-center justify-between p-3 border ${getComponentClasses()}`}>
-                      <Label className="flex items-center gap-3 cursor-pointer font-normal flex-1">
-                        <input type="radio" name="activeAlarm" className="accent-primary w-4 h-4" checked={!settings.alarms.activeCustomAlarmId} onChange={() => setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: null } })} />
-                        Default Alarm
-                      </Label>
-                    </div>
-
-                    {customAlarms.map(alarm => (
-                      <div key={alarm.id} className={`flex items-center justify-between p-3 border group hover:brightness-125 transition-all ${getComponentClasses()}`}>
-                        <Label className="flex items-center gap-3 cursor-pointer font-normal flex-1">
-                          <input type="radio" name="activeAlarm" className="accent-primary w-4 h-4" checked={settings.alarms.activeCustomAlarmId === alarm.id} onChange={() => setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: alarm.id } })} />
-                          {alarm.name}
-                        </Label>
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteAlarm(alarm.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
+                  <div>
+                    <Label>Default Alarm</Label>
+                    <p className="text-sm text-muted-foreground">The built-in alarm sound.</p>
                   </div>
 
-                  {customAlarms.length < 3 && (
-                    <div className="pt-2">
-                      <Input type="file" accept="audio/*" onChange={handleAudioUpload} className={`text-white cursor-pointer file:text-white file:bg-transparent file:border-0 file:font-semibold ${getComponentClasses()}`} />
+                  <div className={`flex items-center justify-between p-3 border ${getComponentClasses()}`}>
+                    <Label className="flex items-center gap-3 cursor-pointer font-normal flex-1">
+                      <input type="radio" name="activeAlarm" className="accent-primary w-4 h-4" checked={!settings.alarms.activeCustomAlarmId} onChange={() => setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: null } })} />
+                      Default Alarm
+                    </Label>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handlePlayAlarm()}>
+                      {previewingAlarmId === null ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                    </Button>
+                  </div>
+
+                  <div className="border-t pt-4 mt-4 space-y-4">
+                    <div>
+                      <Label>Custom Alarm Sounds</Label>
+                      <p className="text-sm text-muted-foreground">Upload your own sounds (max 10s, 2MB). You can store up to 3 alarms.</p>
                     </div>
-                  )}
-                  {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
-                  {uploadSuccess && <p className="text-sm text-green-500">{uploadSuccess}</p>}
+
+                    <div className="space-y-2">
+                      {customAlarms.map(alarm => (
+                        <div key={alarm.id} className={`p-3 border group hover:brightness-125 transition-all ${getComponentClasses()}`}>
+                          <div className="flex items-start gap-3">
+                            <Label className="flex items-start gap-3 cursor-pointer font-normal flex-1 min-w-0">
+                              <input type="radio" name="activeAlarm" className="accent-primary w-4 h-4 mt-0.5 shrink-0" checked={settings.alarms.activeCustomAlarmId === alarm.id} onChange={() => setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: alarm.id } })} />
+                              <div className="min-w-0">
+                                <span>{alarm.name}</span>
+                                <p className="text-xs text-muted-foreground truncate">{alarm.filename}</p>
+                              </div>
+                            </Label>
+                            <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handlePlayAlarm(alarm.id)}>
+                                {previewingAlarmId === alarm.id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                              </Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => { setAlarmModalInput(alarm.name); setAlarmModal({ open: true, mode: 'edit', alarmId: alarm.id, initialName: alarm.name }); }}>
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteAlarm(alarm.id)}>
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {customAlarms.length < 3 && (
+                      <div className="pt-2">
+                        <Input type="file" accept="audio/*" onChange={handleAudioUpload} className={`text-white cursor-pointer file:text-white file:bg-transparent file:border-0 file:font-semibold ${getComponentClasses()}`} />
+                      </div>
+                    )}
+                    {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+                    {uploadSuccess && <p className="text-sm text-green-500">{uploadSuccess}</p>}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -434,25 +533,30 @@ export function SettingsView() {
 
                 <div className="space-y-4 pt-4">
                   <Label>Data Management</Label>
-                  <p className="text-sm text-muted-foreground">Import, export, or clear your statistics and audio data.</p>
+                  <p className="text-sm text-muted-foreground">Import or export your settings, audio files and stats.</p>
                   <div className="flex gap-4">
-                    <Button type="button" variant="outline" onClick={exportData} className="gap-2">
+                    <Button type="button" variant="outline" onClick={() => setExportModal(true)} className="gap-2">
                       <Download className="w-4 h-4" /> Export Configuration
                     </Button>
-                    <Label className="cursor-pointer">
-                      <div className="flex h-10 items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground gap-2">
+                    <Button variant="outline" asChild>
+                      <Label className="cursor-pointer gap-2">
                         <Upload className="w-4 h-4" /> Import Configuration
-                      </div>
-                      <input type="file" accept=".json" onChange={importData} className="hidden" />
-                    </Label>
+                        <input type="file" accept=".json" onChange={importData} className="hidden" />
+                      </Label>
+                    </Button>
                   </div>
-                  <div className="pt-2 flex gap-4">
-                    <Button type="button" variant="destructive" onClick={clearData} className="gap-2">
-                      <Trash2 className="w-4 h-4" /> Clear All Statistics
-                    </Button>
-                    <Button type="button" variant="outline" onClick={generateFakeData} className="gap-2 text-yellow-500 hover:bg-yellow-500/10">
-                      <Bug className="w-4 h-4" /> Generate Debug Data
-                    </Button>
+
+                  <div className="border-t pt-4 mt-4 space-y-4">
+                    <Label>Statistics</Label>
+                    <p className="text-sm text-muted-foreground">Clear your statistics data or generate debug data for testing.</p>
+                    <div className="flex gap-4">
+                      <Button type="button" variant="destructive" onClick={clearData} className="gap-2">
+                        <Trash2 className="w-4 h-4" /> Clear All Statistics
+                      </Button>
+                      <Button type="button" variant="outline" onClick={generateFakeData} className="gap-2 text-yellow-500 hover:bg-yellow-500/10">
+                        <Bug className="w-4 h-4" /> Generate Debug Data
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -476,7 +580,7 @@ export function SettingsView() {
                   rows={8}
                   value={blocklistText}
                   onChange={e => setBlocklistText(e.target.value)}
-                  placeholder="twitter.com&#10;youtube.com"
+                  placeholder="twitter.com&#10;youtube.com&#10;..."
                   className={`font-mono resize-y text-white ${getComponentClasses()}`}
                 />
               </CardContent>
@@ -502,6 +606,66 @@ export function SettingsView() {
 
         </form>
       </div>
+
+      <Dialog open={alarmModal.open} onOpenChange={open => { if (!open) setAlarmModal(prev => ({ ...prev, open: false, pendingFile: undefined })); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{alarmModal.mode === 'create' ? 'Name Your Alarm' : 'Edit Alarm Name'}</DialogTitle>
+            <DialogDescription>
+              {alarmModal.mode === 'create'
+                ? 'Choose a name for your custom alarm sound.'
+                : 'Rename your custom alarm sound.'}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={alarmModalInput}
+            onChange={e => setAlarmModalInput(e.target.value)}
+            placeholder="Alarm name"
+            autoFocus
+            onKeyDown={e => { if (e.key === 'Enter') handleAlarmModalConfirm(); }}
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setAlarmModal(prev => ({ ...prev, open: false, pendingFile: undefined }))}>Cancel</Button>
+            <Button type="button" onClick={handleAlarmModalConfirm}>Confirm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={exportModal} onOpenChange={setExportModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export Configuration</DialogTitle>
+            <DialogDescription>Select which data to include in the export file.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" className="accent-primary w-4 h-4" checked={exportOptions.settings} onChange={e => setExportOptions({ ...exportOptions, settings: e.target.checked })} />
+              <div>
+                <span className="font-medium">Settings</span>
+                <p className="text-xs text-muted-foreground">Timer durations, alarms config, blocklist, and preferences</p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" className="accent-primary w-4 h-4" checked={exportOptions.dailyStats} onChange={e => setExportOptions({ ...exportOptions, dailyStats: e.target.checked })} />
+              <div>
+                <span className="font-medium">Daily Statistics</span>
+                <p className="text-xs text-muted-foreground">Your pomodoro history and session data</p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" className="accent-primary w-4 h-4" checked={exportOptions.audioFiles} onChange={e => setExportOptions({ ...exportOptions, audioFiles: e.target.checked })} />
+              <div>
+                <span className="font-medium">Custom Alarm Sounds</span>
+                <p className="text-xs text-muted-foreground">Your uploaded alarm audio files</p>
+              </div>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setExportModal(false)}>Cancel</Button>
+            <Button type="button" onClick={handleExportConfirm}>Export</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

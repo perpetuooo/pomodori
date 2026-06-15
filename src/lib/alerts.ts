@@ -3,6 +3,7 @@ import { db } from "./db";
 import defaultAlarmUrl from "../assets/audio/alarm.mp3";
 
 let currentBlobUrl: string | null = null;
+let currentPreview: HTMLAudioElement | null = null;
 
 async function getAudioElement(volume: number, activeAlarmId: string | null): Promise<HTMLAudioElement | null> {
   let url = defaultAlarmUrl;
@@ -37,6 +38,54 @@ export async function playAlarm(settings: Settings) {
     }
   } catch (err) {
     console.error("Failed to play alarm", err);
+  }
+}
+
+export function stopPreview() {
+  if (currentPreview) {
+    currentPreview.pause();
+    currentPreview.currentTime = 0;
+    currentPreview = null;
+  }
+}
+
+export async function previewAlarm(volume: number, alarmId: string | null, onEnd?: () => void): Promise<void> {
+  stopPreview();
+
+  let url = defaultAlarmUrl;
+
+  try {
+    if (alarmId) {
+      const customAudio = await db.audioFiles.get(alarmId);
+      if (customAudio && customAudio.blob) {
+        url = URL.createObjectURL(customAudio.blob);
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load custom audio for preview", err);
+  }
+
+  const audio = new Audio(url);
+  audio.volume = Math.max(0, Math.min(1, volume));
+
+  audio.onended = () => {
+    currentPreview = null;
+    onEnd?.();
+  };
+
+  audio.onerror = () => {
+    currentPreview = null;
+    onEnd?.();
+  };
+
+  currentPreview = audio;
+
+  try {
+    await audio.play();
+  } catch (err) {
+    console.error("Failed to play alarm preview", err);
+    currentPreview = null;
+    onEnd?.();
   }
 }
 

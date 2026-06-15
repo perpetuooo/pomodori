@@ -4,8 +4,6 @@ import { useTimer } from "./hooks/useTimer";
 import { StatsView } from "./components/StatsView";
 import {
   Settings as SettingsIcon,
-  Volume2,
-  VolumeX,
   Flame,
   BarChart2,
   Play,
@@ -115,7 +113,6 @@ function App() {
     handleReset,
     handleSetPhase,
     handleAdvance,
-    toggleMute,
     toggleOvertime,
     autoAdvanced,
   } = useTimer();
@@ -245,19 +242,6 @@ function App() {
                   </Tooltip>
                 </div>
                 <div className="top-icons">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={toggleMute}
-                      >
-                        {settings.alarms?.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      {settings.alarms?.soundEnabled ? "Mute Alarms" : "Unmute Alarms"}
-                    </TooltipContent>
-                  </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button

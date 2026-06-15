@@ -18,6 +18,7 @@ export interface DailyStat {
 export interface AudioFile {
   id: string;
   name: string;
+  filename: string;
   blob: Blob;
 }
 
@@ -55,6 +56,18 @@ export class PomodoriDB extends Dexie {
         stat.overtimeLongBreakSeconds = stat.overtimeLongBreakSeconds || 0;
         stat.totalShortBreakSeconds = stat.totalShortBreakSeconds || 0;
         stat.totalLongBreakSeconds = stat.totalLongBreakSeconds || 0;
+      });
+    });
+
+    this.version(6).stores({
+      dailyStats: 'date',
+      settings: 'id',
+      audioFiles: 'id'
+    }).upgrade(tx => {
+      tx.table('audioFiles').toCollection().modify(file => {
+        if (file.filename === undefined) {
+          file.filename = file.name;
+        }
       });
     });
   }
