@@ -70,6 +70,23 @@ export class PomodoriDB extends Dexie {
         }
       });
     });
+
+    this.version(7).stores({
+      dailyStats: 'date',
+      settings: 'id',
+      audioFiles: 'id'
+    }).upgrade(tx => {
+      tx.table('settings').toCollection().modify(setting => {
+        if (setting.alarms) {
+          if (setting.alarms.overtimeNotificationEnabled === undefined) {
+            setting.alarms.overtimeNotificationEnabled = true;
+          }
+          if (setting.alarms.activeDefaultAlarmId === undefined) {
+            setting.alarms.activeDefaultAlarmId = "default-1";
+          }
+        }
+      });
+    });
   }
 }
 
@@ -161,9 +178,11 @@ export const DEFAULT_SETTINGS: Settings = {
   alarms: {
     ringOnComplete: true,
     overtimeRingEnabled: true,
-    volume: 0.5,
+    overtimeNotificationEnabled: true,
+    volume: 1,
     soundEnabled: true,
-    activeCustomAlarmId: null
+    activeCustomAlarmId: null,
+    activeDefaultAlarmId: "default-1"
   }
 };
 

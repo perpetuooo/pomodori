@@ -254,7 +254,7 @@ function App() {
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      Toggle Overtime mode
+                      Overtime Mode
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>

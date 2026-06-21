@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Clock, Bell, Settings as SettingsIcon, Shield, Trash2, Volume2, VolumeX, Download, Upload, Bug, Pencil, Play, Pause } from "lucide-react";
-import { previewAlarm, stopPreview } from "../lib/alerts";
+import { previewAlarm, stopPreview, DEFAULT_ALARMS } from "../lib/alerts";
 
 export function SettingsView() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -391,6 +391,25 @@ export function SettingsView() {
                   <Switch checked={settings.notificationsEnabled} onCheckedChange={c => setSettings({ ...settings, notificationsEnabled: c })} />
                 </div>
 
+                <AnimatePresence>
+                  {settings.notificationsEnabled && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex items-center justify-between pl-6 py-2 ml-2 mt-2">
+                        <div className="space-y-0.5">
+                          <Label>Notify on Overtime</Label>
+                          <p className="text-sm text-muted-foreground">Show system notifications even if Overtime mode is active.</p>
+                        </div>
+                        <Switch checked={settings.alarms.overtimeNotificationEnabled} onCheckedChange={c => setSettings({ ...settings, alarms: { ...settings.alarms, overtimeNotificationEnabled: c } })} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Ring on Session Complete</Label>
@@ -439,31 +458,42 @@ export function SettingsView() {
                       if (!settings.alarms.soundEnabled) return;
                       const onEnd = () => setPreviewingAlarmId(null);
                       stopPreview();
-                      previewAlarm(v, settings.alarms.activeCustomAlarmId, onEnd);
-                      setPreviewingAlarmId(settings.alarms.activeCustomAlarmId);
+                      const alarmId = settings.alarms.activeCustomAlarmId ?? settings.alarms.activeDefaultAlarmId;
+                      previewAlarm(v, alarmId, onEnd);
+                      setPreviewingAlarmId(alarmId);
                     }}
                   />
                 </div>
 
                 <div className="space-y-4 pt-4">
                   <div>
-                    <Label>Default Alarm</Label>
-                    <p className="text-sm text-muted-foreground">The built-in alarm sound.</p>
+                    <Label>Default Alarms</Label>
+                    <p className="text-sm text-muted-foreground">Choose a built-in alarm sound.</p>
                   </div>
 
-                  <div className={`flex items-center justify-between p-3 border ${getComponentClasses()}`}>
-                    <Label className="flex items-center gap-3 cursor-pointer font-normal flex-1">
-                      <input type="radio" name="activeAlarm" className="accent-primary w-4 h-4" checked={!settings.alarms.activeCustomAlarmId} onChange={() => setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: null } })} />
-                      Default Alarm
-                    </Label>
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handlePlayAlarm()}>
-                      {previewingAlarmId === null ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                    </Button>
+                  <div className="space-y-2">
+                    {DEFAULT_ALARMS.map(alarm => (
+                      <div key={alarm.id} className={`flex items-center justify-between p-3 border ${getComponentClasses()}`}>
+                        <Label className="flex items-center gap-3 cursor-pointer font-normal flex-1">
+                          <input
+                            type="radio"
+                            name="activeAlarm"
+                            className="accent-primary w-4 h-4"
+                            checked={!settings.alarms.activeCustomAlarmId && settings.alarms.activeDefaultAlarmId === alarm.id}
+                            onChange={() => setSettings({ ...settings, alarms: { ...settings.alarms, activeCustomAlarmId: null, activeDefaultAlarmId: alarm.id } })}
+                          />
+                          {alarm.name}
+                        </Label>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => handlePlayAlarm(alarm.id)}>
+                          {previewingAlarmId === alarm.id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                        </Button>
+                      </div>
+                    ))}
                   </div>
 
                   <div className="border-t pt-4 mt-4 space-y-4">
                     <div>
-                      <Label>Custom Alarm Sounds</Label>
+                      <Label>Custom Alarms</Label>
                       <p className="text-sm text-muted-foreground">Upload your own sounds (max 10s, 2MB). You can store up to 3 alarms.</p>
                     </div>
 

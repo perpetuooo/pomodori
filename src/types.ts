@@ -14,9 +14,11 @@ export interface TimerState {
 export interface AlarmSettings {
   ringOnComplete: boolean;
   overtimeRingEnabled: boolean;
+  overtimeNotificationEnabled: boolean;
   volume: number;
   soundEnabled: boolean;
   activeCustomAlarmId: string | null;
+  activeDefaultAlarmId: string;
 }
 
 export interface Settings {
